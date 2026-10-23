@@ -87,10 +87,12 @@ export class UI {
         <div class="row"><label>Field of view</label><input type="range" id="s-fov" min="60" max="100" step="1" value="${s.fov}"></div>
         <div class="row"><label>Volume</label><input type="range" id="s-vol" min="0" max="1" step="0.05" value="${s.volume}"></div>
         <div class="row"><label>Graphics quality</label><select id="s-q">${['low', 'medium', 'high'].map((q) => `<option ${q === s.quality ? 'selected' : ''}>${q}</option>`).join('')}</select></div>
+        <div class="row"><label>Resolution</label><select id="s-res">${[[0, 'Auto (from quality)'], [1, '100%'], [0.85, '85%'], [0.7, '70%'], [0.6, '60%'], [0.5, '50%'], [0.4, '40%']].map(([v, l]) => `<option value="${v}" ${+s.resScale === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="row"><label>Show FPS</label><input type="checkbox" id="s-fps" ${s.showFps ? 'checked' : ''}></div>
         <div class="row"><label>Film grain</label><input type="checkbox" id="s-grain" ${s.grain ? 'checked' : ''}></div>
         <div class="row"><label>Phone voice (speech)</label><input type="checkbox" id="s-voice" ${s.voice ? 'checked' : ''}></div>
         <div class="row"><label>Custom PeerJS server</label><input type="text" id="s-peer" value="${s.peerHost}" placeholder="default (cloud)" style="width:200px"></div>
-        <p class="hint">Texture quality changes apply after reloading the page.</p>`;
+        <p class="hint">Laggy? Lower the quality first, then the resolution. Low draws 3 lights per pixel at 60% resolution with no post-processing; High draws 8 lights at full resolution with bloom and flashlight shadows. Texture detail changes apply after reloading the page.</p>`;
       const bind = (id, key, conv) => { $(id).oninput = $(id).onchange = (e) => { s[key] = conv(e.target); g.applySettings(); }; };
       bind('s-sens', 'sensitivity', (t) => +t.value);
       bind('s-inv', 'invertY', (t) => t.checked);
@@ -98,6 +100,8 @@ export class UI {
       bind('s-vol', 'volume', (t) => +t.value);
       bind('s-q', 'quality', (t) => t.value);
       bind('s-grain', 'grain', (t) => t.checked);
+      bind('s-res', 'resScale', (t) => +t.value);
+      bind('s-fps', 'showFps', (t) => t.checked);
       bind('s-voice', 'voice', (t) => t.checked);
       bind('s-peer', 'peerHost', (t) => t.value);
     } else if (kind === 'controls') {

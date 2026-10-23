@@ -16,8 +16,6 @@ export class Entities {
     this.mines = new Map();      // id -> {data, mesh}
     this.base = [];
     this.fx = [];
-    this.boomLight = new THREE.PointLight(0xffa040, 0, 25, 1.5);
-    this.scene.add(this.boomLight);
   }
 
   get state() { return this.game.state; }
@@ -184,8 +182,7 @@ export class Entities {
 
   explosion(x, z) {
     this.game.audio.play('boom', { x, y: 0.5, z }, { ref: 6 });
-    this.boomLight.position.set(x, 1, z);
-    this.boomLight.intensity = 80;
+    this.game.effects.pulse({ x, y: 1, z }, 0xffa040, 80, 6);
     const mat = new THREE.MeshBasicMaterial({ color: 0xffaa55, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
     const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), mat);
     ball.position.set(x, 0.6, z);
@@ -251,7 +248,12 @@ export class Entities {
       // a running engine shakes a little
       g.mesh.position.y = this.game.state.power ? Math.sin(time * 70) * 0.002 : 0;
     }
+    // skip drawing small props that are lost in the fog anyway
+    const cp = this.game.camera.position;
+    const near = (o, r) => (o.position.x - cp.x) ** 2 + (o.position.z - cp.z) ** 2 < r * r;
+    for (const g of this.gens.values()) g.mesh.visible = near(g.mesh, 40);
     for (const it of this.items.values()) {
+      it.mesh.visible = near(it.mesh, 30);
       // slow bob so pickups catch the light
       it.mesh.position.y = 0.01 + Math.max(0, Math.sin(time * 1.5 + it.data.rot * 3)) * 0.015;
     }
@@ -265,7 +267,6 @@ export class Entities {
       if (k.remote) this._kartCol(k.col, d);
       for (const w of k.mesh.userData.wheels) w.rotation.x += k.speed * dt / 0.22;
     }
-    this.boomLight.intensity *= Math.exp(-dt * 6);
     for (let i = this.fx.length - 1; i >= 0; i--) {
       const f = this.fx[i];
       f.t += dt;
@@ -301,7 +302,6 @@ export class Entities {
     for (const m of this.mines.values()) this.scene.remove(m.mesh);
     for (const b of this.base) this.scene.remove(b);
     for (const f of this.fx) this.scene.remove(f.ball, f.smoke);
-    this.scene.remove(this.boomLight);
     this.setPhoneRinging(false);
     this.items.clear(); this.gens.clear(); this.karts.clear(); this.mines.clear();
   }

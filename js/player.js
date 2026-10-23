@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { clamp, damp, cellOf, WALL_H } from './util.js';
 import * as Models from './models.js';
+import { preset } from './quality.js';
 
 const RADIUS = 0.33;
 
@@ -29,7 +30,7 @@ export class Player {
     this.light.position.set(0.18, -0.12, 0);
     this.light.target.position.set(0.1, -0.15, -6);
     this.cam.add(this.light, this.light.target);
-    this.applyQuality(game.settings.quality);
+    this.applyQuality();
 
     this.hand = new THREE.Group();
     this.hand.position.set(0.24, -0.24, -0.5);
@@ -40,9 +41,12 @@ export class Player {
     this.vm[1].visible = true;
   }
 
-  applyQuality(q) {
-    this.light.castShadow = q === 'high';
-    this.light.shadow.mapSize.set(1024, 1024);
+  applyQuality() {
+    const q = preset(this.game.settings);
+    this.light.castShadow = q.shadows;
+    this.light.shadow.mapSize.set(q.shadowSize, q.shadowSize);
+    this.light.shadow.map?.dispose();
+    this.light.shadow.map = null;
     this.light.shadow.bias = -0.0004;
     this.light.shadow.normalBias = 0.03;
     this.light.shadow.camera.near = 0.2;
@@ -84,9 +88,9 @@ export class Player {
       inv.ammo--;
       g.audio.play('gun', null);
       this.recoil = 1;
-      this.vm[2].userData.flash.intensity = 40;
       const origin = this.cam.getWorldPosition(new THREE.Vector3());
       const dir = this.cam.getWorldDirection(new THREE.Vector3());
+      g.effects.pulse(origin.clone().addScaledVector(dir, 0.6), 0xffb060, 40, 30);
       const m = g.monsters.shoot(origin, dir);
       g.net.send({ t: 'shot', x: origin.x, y: origin.y, z: origin.z });
       if (m) {
@@ -113,8 +117,8 @@ export class Player {
     const g = this.game, w = g.world;
     this.light.intensity = this.flashlight && !this.dead ? 22 * (g.monsters.stare > 0.3 && Math.random() < g.monsters.stare * 0.4 ? 0.1 : 1) : 0;
     this.vm[1].userData.lens.material.emissiveIntensity = this.flashlight ? 3 : 0;
-    const flash = this.vm[2].userData.flash;
-    flash.intensity *= Math.exp(-dt * 30);
+    // only redraw the flashlight's shadow map while it's actually on
+    g.renderer.shadowMap.autoUpdate = this.light.castShadow && this.light.intensity > 0;
 
     if (this.dead) { this._applyCamera(dt, 0); return; }
 

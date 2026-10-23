@@ -15,6 +15,7 @@ import { UI, RECIPES } from './ui.js';
 import { Net } from './net.js';
 import { objectivesForDay, dialogueForDay } from './objectives.js';
 import * as Save from './save.js';
+import { preset, pixelRatio } from './quality.js';
 
 const MENU_SEED = 90210;
 
@@ -22,15 +23,15 @@ class Game {
   constructor() {
     this.settings = Save.loadSettings();
     this.canvas = document.getElementById('game');
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: false, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, this.settings.quality === 'high' ? 1.5 : 1));
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: false, stencil: false, powerPreference: 'high-performance' });
+    this.renderer.setPixelRatio(pixelRatio(this.settings));
     this.renderer.setSize(innerWidth, innerHeight);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(this.settings.fov, innerWidth / innerHeight, 0.05, 120);
+    this.camera = new THREE.PerspectiveCamera(this.settings.fov, innerWidth / innerHeight, 0.05, preset(this.settings).far);
     this.scene.add(this.camera);
     this.audio = new GameAudio();
     this.audio.setVolume(this.settings.volume);
@@ -70,6 +71,7 @@ class Game {
     this.mode = 'menu';
     this.ui.showMenu();
     this._bindMenu();
+    document.getElementById('fps').classList.toggle('hidden', !this.settings.showFps);
     this.last = performance.now();
     requestAnimationFrame((t) => this.frame(t));
     window.game = this;
@@ -311,9 +313,13 @@ class Game {
     Save.saveSettings(s);
     this.camera.fov = s.fov; this.camera.updateProjectionMatrix();
     this.audio.setVolume(s.volume);
-    this.player.applyQuality(s.quality);
+    this.player.applyQuality();
     this.effects.applyQuality(s);
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, s.quality === 'high' ? 1.5 : 1));
+    this.world?.applyQuality();
+    this.camera.far = preset(s).far; this.camera.updateProjectionMatrix();
+    this.renderer.setPixelRatio(pixelRatio(s));
+    this.effects.composer.setPixelRatio(pixelRatio(s));
+    document.getElementById('fps').classList.toggle('hidden', !s.showFps);
     this.resize();
   }
 
@@ -584,6 +590,13 @@ class Game {
     if (this.mode !== 'loading') {
       this.effects.update(dt, this.time);
       this.effects.render();
+    }
+    if (this.settings.showFps) {
+      this.fpsN = (this.fpsN || 0) + 1;
+      if (now - (this.fpsT || 0) > 500) {
+        document.getElementById('fps').textContent = `${Math.round(this.fpsN * 1000 / (now - (this.fpsT || now - 500)))} FPS`;
+        this.fpsN = 0; this.fpsT = now;
+      }
     }
   }
 

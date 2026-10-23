@@ -91,6 +91,7 @@ button:disabled { opacity: .35; cursor: default; }
 .lg { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; }
 .lg.you { background: #fff; } .lg.base { background: #6fd36f; } .lg.gen { background: #f2c230; } .lg.kart { background: #ff5a3c; } .lg.mine { background: #a0a060; } .lg.ally { background: #4fb8ff; }
 
+#fps { position: fixed; right: 10px; bottom: 8px; z-index: 30; font-size: 12px; color: #9f9; text-shadow: 0 0 3px #000; pointer-events: none; }
 #fade { background: #000; opacity: 0; pointer-events: none; transition: opacity .6s; display: flex; align-items: center; justify-content: center; text-align: center; z-index: 20; }
 #fade.on { opacity: 1; pointer-events: auto; }
 #fadetext { font-size: 30px; letter-spacing: 4px; line-height: 1.6; }

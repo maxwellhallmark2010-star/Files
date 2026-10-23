@@ -2,10 +2,9 @@
 // and grid path-finding. Layout is a pure function of the seed so every
 // client in multiplayer and every reload sees the same maze.
 import * as THREE from 'three';
+import { preset } from './quality.js';
 import { CELL, CHUNK, CHUNK_SIZE, WALL_H, WALL_T, PILLAR, hash, mulberry32, cellOf, chunkOf, clamp } from './util.js';
 
-const LOAD_R = 2;
-const UNLOAD_R = 3;
 
 export const ITEM_TYPES = ['metal', 'electronics', 'gunpowder'];
 
@@ -253,14 +252,25 @@ export class World {
     this.bgOff = new THREE.Color(0x000000);
     this.bg = this.bgOn.clone();
     this.scene.background = this.bg;
-    const n = this.settings.quality === 'low' ? 8 : this.settings.quality === 'medium' ? 12 : 16;
     this.pool = [];
-    for (let i = 0; i < n; i++) {
-      const l = new THREE.PointLight(0xfff0d0, 0, 11, 1.6);
+    this.applyQuality();
+    this._poolTimer = 0;
+  }
+
+  // Real point lights follow the nearest ceiling panels. Fewer lights = much
+  // cheaper pixels; the ambient fill rises a little to compensate.
+  applyQuality() {
+    const q = preset(this.settings);
+    this.loadR = q.loadR;
+    while (this.pool.length > q.lights) this.scene.remove(this.pool.pop());
+    while (this.pool.length < q.lights) {
+      const l = new THREE.PointLight(0xfff0d0, 0, 12, 1.5);
       l.userData.fix = null;
       this.scene.add(l);
       this.pool.push(l);
     }
+    this.hemiBase = 0.5 + (8 - q.lights) * 0.05;
+    this.lightBoost = 1 + (8 - q.lights) * 0.06;
     this._poolTimer = 0;
   }
 
@@ -320,12 +330,12 @@ export class World {
       g.add(m);
       return m;
     };
-    inst(this.geo.wall, pool ? this.mat.poolWall : this.mat.wall, wallM, true);
+    inst(this.geo.wall, pool ? this.mat.poolWall : this.mat.wall, wallM);
     if (!pool) {
       inst(this.geo.board, this.mat.base, wallM.map((mm) => mm.clone().multiply(new THREE.Matrix4().makeTranslation(0, -WALL_H / 2 + 0.05, 0))));
       inst(this.geo.ao, this.mat.ao, aos);
     }
-    inst(this.geo.pillar, pool ? this.mat.poolPillar : this.mat.pillar, pillars, true);
+    inst(this.geo.pillar, pool ? this.mat.poolPillar : this.mat.pillar, pillars);
     inst(this.geo.water, this.mat.water, water);
     const fx = (kind) => fixtures.filter((f) => f.kind === kind).map((f) => new THREE.Matrix4().makeTranslation(f.x, WALL_H - 0.012, f.z));
     inst(this.geo.panel, this.mat.lightOn, fx(1));
@@ -354,7 +364,8 @@ export class World {
     const pcx = chunkOf(cellOf(px)), pcz = chunkOf(cellOf(pz));
     // stream chunks, nearest first, a couple per frame to avoid hitches
     const want = [];
-    for (let dx = -LOAD_R; dx <= LOAD_R; dx++) for (let dz = -LOAD_R; dz <= LOAD_R; dz++) {
+    const R = this.loadR;
+    for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) {
       const k = `${pcx + dx},${pcz + dz}`;
       if (!this.chunks.has(k)) want.push([dx * dx + dz * dz, pcx + dx, pcz + dz, k]);
     }
@@ -366,7 +377,7 @@ export class World {
       this.onChunkLoad?.(c);
     }
     for (const [k, c] of this.chunks) {
-      if (Math.abs(c.cx - pcx) > UNLOAD_R || Math.abs(c.cz - pcz) > UNLOAD_R) {
+      if (Math.abs(c.cx - pcx) > R + 1 || Math.abs(c.cz - pcz) > R + 1) {
         this.disposeChunk(c);
         this.chunks.delete(k);
         this.onChunkUnload?.(c);
@@ -384,7 +395,7 @@ export class World {
     this.mat.lightOn.emissiveIntensity = 2.6 * pw;
     this.mat.lightFlicker.emissiveIntensity = 2.6 * pw * fl;
     this.mat.lightOn.color.setScalar(0.3 + 0.7 * pw);
-    this.hemi.intensity = 0.04 + 0.5 * pw;
+    this.hemi.intensity = 0.04 + this.hemiBase * pw;
     this.bg.copy(this.bgOff).lerp(this.bgOn, pw);
     this.fog.color.copy(this.bg);
     this.fog.density = 0.03 + (1 - pw) * 0.03;
@@ -413,7 +424,7 @@ export class World {
     }
     for (const l of this.pool) {
       const f = l.userData.fix;
-      l.intensity = f ? 7 * pw * (f.kind === 2 ? fl : 1) : 0;
+      l.intensity = f ? 7 * this.lightBoost * pw * (f.kind === 2 ? fl : 1) : 0;
     }
   }
 

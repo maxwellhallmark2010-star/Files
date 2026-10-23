@@ -7,6 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import * as Models from './models.js';
+import { preset } from './quality.js';
 
 const FilmShader = {
   uniforms: {
@@ -47,6 +48,9 @@ export class Effects {
     this.composer = new EffectComposer(renderer);
     this.composer.addPass(new RenderPass(scene, camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.6, 0.92);
+    // bloom is a blur, so computing it at half resolution looks the same for a quarter of the cost
+    const bloomSize = this.bloom.setSize.bind(this.bloom);
+    this.bloom.setSize = (w, h) => bloomSize(Math.max(1, w >> 1), Math.max(1, h >> 1));
     this.composer.addPass(this.bloom);
     this.film = new ShaderPass(FilmShader);
     this.composer.addPass(this.film);
@@ -65,18 +69,30 @@ export class Effects {
     this.scareGroup = new THREE.Group();
     camera.add(this.scareGroup);
     for (const m of Object.values(this.scareModels)) { m.visible = false; this.scareGroup.add(m); m.traverse((o) => { o.castShadow = false; }); }
-    this.scareLight = new THREE.PointLight(0xffd0b0, 0, 6, 2);
-    this.scareLight.position.set(0, 0.4, -0.2);
-    camera.add(this.scareLight);
+    // One shared light for muzzle flashes, explosions and jumpscares: every
+    // light in the scene costs every pixel, even at zero intensity.
+    this.fx = new THREE.PointLight(0xffffff, 0, 25, 1.5);
+    this.fxRate = 6;
+    scene.add(this.fx);
     this.applyQuality(game.settings);
   }
 
   applyQuality(s) {
-    this.bloom.enabled = s.quality !== 'low';
+    const q = preset(s);
+    this.bloom.enabled = q.bloom;
+    this.post = q.post;
     this.u.grain.value = s.grain ? 0.045 : 0;
   }
 
   setSize(w, h) { this.composer.setSize(w, h); }
+
+  pulse(pos, color, intensity, rate) {
+    if (this.scare) return;
+    this.fx.position.set(pos.x, pos.y, pos.z);
+    this.fx.color.setHex(color);
+    this.fx.intensity = intensity;
+    this.fxRate = rate;
+  }
 
   shake(amount, dur) { this.shakeAmt = Math.max(this.shakeAmt, amount); this.shakeT = Math.max(this.shakeT, dur); }
   hurt(v = 1) { this.u.damage.value = Math.min(1.2, this.u.damage.value + v); }
@@ -111,6 +127,7 @@ export class Effects {
     // low health keeps a red edge
     if (g.player && !g.player.dead && g.player.health < 35) this.u.damage.value = Math.max(this.u.damage.value, 0.25 + Math.sin(time * 5) * 0.08);
 
+    if (!this.scare) this.fx.intensity *= Math.exp(-dt * this.fxRate);
     if (this.scare) {
       const s = this.scare;
       s.t += dt;
@@ -123,10 +140,12 @@ export class Effects {
       s.m.position.set(s.base[0] + (Math.random() - 0.5) * 0.04, y + (Math.random() - 0.5) * 0.04, s.base[2] * (1.6 - lunge * 0.75));
       if (s.kind === 'spider') Models.animateSpider(s.m, time * 30, 1.5);
       if (s.kind === 'bulb') s.m.userData.bulbMat.emissiveIntensity = 1.2 + Math.random() * 1.5;
-      this.scareLight.intensity = s.kind === 'shadow' ? 1 : s.kind === 'bulb' ? 3 : 8;
+      g.camera.localToWorld(this.fx.position.set(0, 0.4, -0.2));
+      this.fx.color.setHex(0xffd0b0);
+      this.fx.intensity = s.kind === 'shadow' ? 1 : s.kind === 'bulb' ? 3 : 8;
       if (s.t >= s.dur) {
         s.m.visible = false;
-        this.scareLight.intensity = 0;
+        this.fx.intensity = 0;
         this.scare = null;
         s.onDone?.();
       }
@@ -141,5 +160,10 @@ export class Effects {
     }
   }
 
-  render() { this.composer.render(); }
+  // Low quality skips the full-screen passes and draws straight to the screen
+  // (the renderer still applies tone mapping); only jumpscare flashes need them.
+  render() {
+    if (this.post || this.u.flash.value > 0.01 || this.u.damage.value > 0.01) this.composer.render();
+    else this.game.renderer.render(this.game.scene, this.game.camera);
+  }
 }

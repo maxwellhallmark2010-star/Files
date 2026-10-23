@@ -341,10 +341,6 @@ export function makeViewGun() {
   grip.rotation.x = -0.25; g.add(grip);
   g.add(mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.04, 8).rotateX(Math.PI / 2), M.chrome, 0, 0.005, -0.165, false));
   g.add(mesh(new THREE.BoxGeometry(0.008, 0.012, 0.008), M.chrome, 0, 0.026, -0.14, false));
-  const flash = new THREE.PointLight(0xffb060, 0, 8, 2);
-  flash.position.set(0, 0, -0.25);
-  g.add(flash);
-  g.userData.flash = flash;
   return g;
 }
 
