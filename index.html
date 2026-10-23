@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Backrooms — Level 0</title>
+<link rel="stylesheet" href="style.css">
+<script src="lib/peerjs.min.js"></script>
+<script type="importmap">
+{ "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/" } }
+</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="loading" class="screen">
+  <div class="title glitch" data-text="THE BACKROOMS">THE BACKROOMS</div>
+  <div class="loadbar"><div id="loadfill"></div></div>
+  <div id="loadtext">Generating textures…</div>
+</div>
+
+<div id="menu" class="screen hidden">
+  <div class="menu-left">
+    <div class="title glitch" data-text="THE BACKROOMS">THE BACKROOMS</div>
+    <div class="subtitle">LEVEL 0 &nbsp;·&nbsp; "THE LOBBY"</div>
+    <div id="menu-main" class="menu-list">
+      <button id="btn-continue">Continue</button>
+      <button id="btn-new">New Game</button>
+      <button id="btn-load">Load Game</button>
+      <button id="btn-mp">Multiplayer (Co-op)</button>
+      <button id="btn-settings">Settings</button>
+      <button id="btn-controls">Controls</button>
+    </div>
+    <div class="vhs">PLAY ▶ <span id="vhs-time">00:00:00</span></div>
+  </div>
+  <div id="panel" class="panel hidden"></div>
+</div>
+
+<div id="pause" class="screen dim hidden">
+  <div class="menu-center">
+    <div class="title small">PAUSED</div>
+    <div class="menu-list">
+      <button id="btn-resume">Resume</button>
+      <button id="btn-save">Save Game</button>
+      <button id="btn-psettings">Settings</button>
+      <button id="btn-pcontrols">Controls</button>
+      <button id="btn-quit">Quit to Menu</button>
+    </div>
+    <div id="mp-info" class="mp-info"></div>
+  </div>
+  <div id="ppanel" class="panel hidden"></div>
+</div>
+
+<div id="hud" class="hidden">
+  <div id="crosshair"></div>
+  <div id="prompt" class="hidden"><span class="key">E</span> <span id="prompt-text"></span><div id="hold"><div id="holdfill"></div></div></div>
+  <div id="objectives"></div>
+  <div id="power" class="hidden">⚠ POWER FAILURE — find a generator <span class="key">M</span> &nbsp; flashlight <span class="key">F</span></div>
+  <div id="bars">
+    <div class="bar"><label>HEALTH</label><div class="track"><div id="hp"></div></div></div>
+    <div class="bar"><label>STAMINA</label><div class="track"><div id="st"></div></div></div>
+  </div>
+  <div id="hotbar"></div>
+  <div id="subtitles"></div>
+  <div id="toast"></div>
+  <div id="lockhint" class="hidden">Click to continue</div>
+</div>
+
+<div id="craft" class="screen dim hidden">
+  <div class="craft-box">
+    <div class="craft-head">INVENTORY &amp; CRAFTING <span class="hint">Tab / Esc to close</span></div>
+    <div id="inv"></div>
+    <div id="recipes"></div>
+  </div>
+</div>
+
+<div id="mapview" class="screen hidden">
+  <canvas id="map"></canvas>
+  <div class="map-legend">
+    <span><i class="lg you"></i>You</span><span><i class="lg base"></i>Base</span><span><i class="lg gen"></i>Generator</span>
+    <span><i class="lg kart"></i>Go-kart</span><span><i class="lg mine"></i>Landmine</span><span><i class="lg ally"></i>Player</span>
+    <span class="hint">Scroll to zoom · M / Esc to close</span>
+  </div>
+</div>
+
+<div id="fade" class="screen"><div id="fadetext"></div></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
