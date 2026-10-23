@@ -6,7 +6,7 @@ import { preset } from './quality.js';
 import { CELL, CHUNK, CHUNK_SIZE, WALL_H, WALL_T, PILLAR, hash, mulberry32, cellOf, chunkOf, clamp } from './util.js';
 
 
-export const ITEM_TYPES = ['metal', 'electronics', 'gunpowder'];
+export const ITEM_TYPES = ['metal', 'electronics', 'gunpowder', 'almond'];
 
 export class World {
   constructor(scene, tex, seed, settings) {
@@ -99,7 +99,7 @@ export class World {
       const ox = (rnd() - 0.5) * 2.4, oz = (rnd() - 0.5) * 2.4, rot = rnd() * Math.PI * 2;
       const r = rnd();
       if (this.inBase(gx, gz) || (gen && gen.gx === gx && gen.gz === gz)) continue;
-      const t = r < 0.45 ? 'metal' : r < 0.75 ? 'electronics' : 'gunpowder';
+      const t = r < 0.4 ? 'metal' : r < 0.67 ? 'electronics' : r < 0.87 ? 'gunpowder' : 'almond';
       out.push({ id: `${cx},${cz},${k}`, type: t, x: gx * CELL + CELL / 2 + ox, z: gz * CELL + CELL / 2 + oz, rot });
     }
     return out;

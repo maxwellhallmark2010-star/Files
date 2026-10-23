@@ -12,7 +12,8 @@ export const RECIPES = [
 const CONTROLS = [
   ['W A S D', 'Move'], ['Mouse', 'Look'], ['Shift', 'Sprint'], ['C / Ctrl', 'Crouch'], ['E', 'Interact / pick up / enter vehicle'],
   ['F', 'Flashlight'], ['Left click', 'Shoot / place landmine'], ['1 2 3', 'Flashlight · Gun · Landmine'],
-  ['Tab / I', 'Inventory & crafting'], ['M', 'Map'], ['Esc', 'Pause'],
+  ['H', 'Drink almond water (heals)'], ['Tab / I', 'Inventory & crafting'], ['M', 'Map'], ['N', 'Minimap on/off'], ['Esc', 'Pause'],
+  ['Touch', 'Left thumb: move · drag right side: look · buttons: use, E, flashlight, item, drink, run, crouch'],
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -22,8 +23,12 @@ export class UI {
     this.game = game;
     this.mapZoom = 5;
     this.subQueue = null;
-    $('map').addEventListener('wheel', (e) => { this.mapZoom = Math.max(1.5, Math.min(16, this.mapZoom * (e.deltaY > 0 ? 0.85 : 1.18))); this.drawMap(); });
+    $('map').addEventListener('wheel', (e) => this.zoomMap(e.deltaY > 0 ? 0.85 : 1.18));
+    $('map-in').onclick = () => this.zoomMap(1.3);
+    $('map-out').onclick = () => this.zoomMap(1 / 1.3);
   }
+
+  zoomMap(k) { this.mapZoom = Math.max(1.5, Math.min(16, this.mapZoom * k)); this.drawMap(); }
 
   setLoading(p, text) { $('loadfill').style.width = `${p * 100}%`; if (text) $('loadtext').textContent = text; }
 
@@ -72,6 +77,8 @@ export class UI {
         <div class="row"><button class="btn" id="mp-host">Host a game</button><span class="hint">uses your most recent save, or a new world</span></div>
         <div class="row"><input type="text" id="mp-code" placeholder="ROOM CODE" maxlength="5" style="text-transform:uppercase"><button class="btn" id="mp-join">Join</button></div>
         <div id="mp-status" class="hint"></div>`;
+      const why = g.net.unavailableReason();
+      if (why) { $('mp-status').textContent = why; $('mp-host').disabled = $('mp-join').disabled = true; }
       $('mp-host').onclick = () => g.hostGame((msg) => { $('mp-status').textContent = msg; });
       $('mp-join').onclick = () => {
         const c = $('mp-code').value.trim();
@@ -88,6 +95,8 @@ export class UI {
         <div class="row"><label>Volume</label><input type="range" id="s-vol" min="0" max="1" step="0.05" value="${s.volume}"></div>
         <div class="row"><label>Graphics quality</label><select id="s-q">${['low', 'medium', 'high'].map((q) => `<option ${q === s.quality ? 'selected' : ''}>${q}</option>`).join('')}</select></div>
         <div class="row"><label>Resolution</label><select id="s-res">${[[0, 'Auto (from quality)'], [1, '100%'], [0.85, '85%'], [0.7, '70%'], [0.6, '60%'], [0.5, '50%'], [0.4, '40%']].map(([v, l]) => `<option value="${v}" ${+s.resScale === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="row"><label>Mobile controls</label><select id="s-touch">${[['auto', 'Auto (touch screens)'], ['on', 'On'], ['off', 'Off']].map(([v, l]) => `<option value="${v}" ${s.touch === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="row"><label>Minimap</label><input type="checkbox" id="s-mini" ${s.minimap ? 'checked' : ''}></div>
         <div class="row"><label>Show FPS</label><input type="checkbox" id="s-fps" ${s.showFps ? 'checked' : ''}></div>
         <div class="row"><label>Film grain</label><input type="checkbox" id="s-grain" ${s.grain ? 'checked' : ''}></div>
         <div class="row"><label>Phone voice (speech)</label><input type="checkbox" id="s-voice" ${s.voice ? 'checked' : ''}></div>
@@ -102,6 +111,8 @@ export class UI {
       bind('s-grain', 'grain', (t) => t.checked);
       bind('s-res', 'resScale', (t) => +t.value);
       bind('s-fps', 'showFps', (t) => t.checked);
+      bind('s-touch', 'touch', (t) => t.value);
+      bind('s-mini', 'minimap', (t) => t.checked);
       bind('s-voice', 'voice', (t) => t.checked);
       bind('s-peer', 'peerHost', (t) => t.value);
     } else if (kind === 'controls') {
@@ -114,6 +125,13 @@ export class UI {
         • The shadow creature only wants to scare you.<br>
         • If the lights cut out, press F and find the generator highlighted on your map.</p>`;
     }
+    this._addClose(el);
+  }
+
+  // Every panel gets a close button
+  _addClose(el) {
+    el.insertAdjacentHTML('afterbegin', '<button class="close" aria-label="Close">✕</button>');
+    el.querySelector('.close').onclick = () => { this.game.audio.play('ui'); el.classList.add('hidden'); };
   }
 
   // Two-click confirmation (browser confirm() dialogs are blocked in some embeds).
@@ -157,6 +175,7 @@ export class UI {
       [1, 'Flashlight', p.flashlight ? 'ON' : 'OFF', true],
       [2, 'Gun', inv.gun ? `${inv.ammo} rds` : '—', inv.gun],
       [3, 'Landmine', `x${inv.mines}`, inv.mines > 0],
+      ['H', 'Almond Water', `x${inv.almond || 0}`, inv.almond > 0],
     ];
     $('hotbar').innerHTML = slots.map(([n, name, sub, ok]) => `<div class="hs ${p.slot === n ? 'sel' : ''} ${ok ? '' : 'off'}">${n} · ${name}<br>${sub}</div>`).join('');
   }
@@ -171,7 +190,7 @@ export class UI {
 
   renderCraft() {
     const g = this.game, inv = g.state.inv;
-    $('inv').innerHTML = ['metal', 'electronics', 'gunpowder'].map((k) => `<div class="invc"><b>${inv[k]}</b>${ITEM_NAMES[k]}</div>`).join('');
+    $('inv').innerHTML = ['metal', 'electronics', 'gunpowder', 'almond'].map((k) => `<div class="invc"><b>${inv[k]}</b>${ITEM_NAMES[k]}</div>`).join('');
     $('recipes').innerHTML = RECIPES.map((r) => {
       const ok = Object.entries(r.cost).every(([k, n]) => inv[k] >= n);
       const cost = Object.entries(r.cost).map(([k, n]) => `<span class="${inv[k] >= n ? '' : 'miss'}">${ITEM_NAMES[k]} ×${n}</span>`).join(' + ');
@@ -199,15 +218,38 @@ export class UI {
     $('fadetext').innerHTML = html;
   }
 
-  drawMap() {
+  updateCompass(yaw) {
+    // heading in degrees, 0 = north (-z), clockwise
+    const deg = ((-yaw * 180 / Math.PI) % 360 + 360) % 360;
+    const strip = $('compass-strip');
+    if (!strip.childElementCount) {
+      const names = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
+      let h = '';
+      for (let a = -180; a <= 540; a += 15) { const n = names[(a + 360) % 360]; h += `<span class="${n && n.length === 1 ? 'c' : ''}">${n || '·'}</span>`; }
+      strip.innerHTML = h;
+    }
+    // 30px per 15 degrees; strip starts at -180
+    strip.style.transform = `translateX(${$('compass').clientWidth / 2 - ((deg + 180) / 15) * 30 - 15}px)`;
+  }
+
+  renderStats() {
+    const s = this.game.state?.stats;
+    if (!s) { $('stats').innerHTML = ''; return; }
+    const row = (k, v) => `<span>${k}</span><b>${v}</b>`;
+    $('stats').innerHTML = row('Days survived', this.game.state.day - 1) + row('Distance walked', `${Math.round(s.walked)} m`) +
+      row('Items collected', s.items) + row('Creatures killed', s.kills) + row('Deaths', s.deaths) + row('Items crafted', s.crafted);
+  }
+
+  drawMap(mini = false) {
     const g = this.game, w = g.world, p = g.player, st = g.state;
-    const cv = $('map'), dpr = Math.min(2, devicePixelRatio || 1);
+    const cv = $(mini ? 'minimap' : 'map'), dpr = Math.min(2, devicePixelRatio || 1);
     const W = cv.clientWidth, H = cv.clientHeight;
     if (cv.width !== W * dpr || cv.height !== H * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
     const ctx = cv.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    const s = this.mapZoom;
+    if (mini) { ctx.save(); ctx.beginPath(); ctx.arc(W / 2, H / 2, W / 2, 0, 7); ctx.clip(); }
+    const s = mini ? 3 : this.mapZoom;
     const sx = (x) => W / 2 + (x - p.pos.x) * s, sz = (z) => H / 2 + (z - p.pos.z) * s;
     const halfW = W / 2 / s, halfH = H / 2 / s;
     const gx0 = Math.floor((p.pos.x - halfW) / CELL) - 1, gx1 = Math.floor((p.pos.x + halfW) / CELL) + 1;
@@ -236,7 +278,7 @@ export class UI {
     ctx.strokeStyle = '#6fd36f'; ctx.lineWidth = 2;
     ctx.strokeRect(sx(0), sz(0), 3 * CELL * s, 3 * CELL * s);
     ctx.fillStyle = '#6fd36f'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('BASE / BED', sx(6), sz(6));
+    if (!mini) ctx.fillText('BASE / BED', sx(6), sz(6));
     // generators
     const t = performance.now() / 1000;
     const cs = CELL * CHUNK;
@@ -255,16 +297,17 @@ export class UI {
       ctx.beginPath(); ctx.arc(x, z, 12 + Math.sin(t * 6) * 4, 0, 7); ctx.stroke();
       ctx.setLineDash([6, 6]); ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(W / 2, H / 2); ctx.lineTo(x, z); ctx.stroke(); ctx.setLineDash([]);
-      this._pin(ctx, near.x, near.z, sx, sz, W, H, '#f2c230', `GENERATOR ${Math.round(Math.hypot(near.x - p.pos.x, near.z - p.pos.z))}m`);
+      this._pin(ctx, near.x, near.z, sx, sz, W, H, '#f2c230', mini ? '' : `GENERATOR ${Math.round(Math.hypot(near.x - p.pos.x, near.z - p.pos.z))}m`);
     }
     for (const m of st.mines) this._dot(ctx, sx(m.x), sz(m.z), 3, '#a0a060');
-    for (const k of g.entities.karts.values()) this._pin(ctx, k.data.x, k.data.z, sx, sz, W, H, '#ff5a3c', `GO-KART ${Math.round(Math.hypot(k.data.x - p.pos.x, k.data.z - p.pos.z))}m`);
-    for (const r of g.net.remotes.values()) if (r.state) this._pin(ctx, r.state.x, r.state.z, sx, sz, W, H, '#4fb8ff', 'PLAYER');
+    for (const k of g.entities.karts.values()) this._pin(ctx, k.data.x, k.data.z, sx, sz, W, H, '#ff5a3c', mini ? '' : `GO-KART ${Math.round(Math.hypot(k.data.x - p.pos.x, k.data.z - p.pos.z))}m`);
+    for (const r of g.net.remotes.values()) if (r.state) this._pin(ctx, r.state.x, r.state.z, sx, sz, W, H, '#4fb8ff', mini ? '' : 'PLAYER');
     // you
     ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(-p.yaw);
     ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(6, 7); ctx.lineTo(0, 3); ctx.lineTo(-6, 7); ctx.closePath(); ctx.fill();
     ctx.restore();
+    if (mini) { ctx.restore(); return; }
     ctx.fillStyle = '#efe6c4'; ctx.textAlign = 'left'; ctx.font = '14px monospace';
     ctx.fillText(`DAY ${st.day}   ${Math.round(p.pos.x)}, ${Math.round(p.pos.z)}   ${w.cellType(Math.floor(p.pos.x / CELL), Math.floor(p.pos.z / CELL)).toUpperCase()}`, 20, 30);
   }
@@ -274,7 +317,7 @@ export class UI {
   // A ping that sticks to the screen edge when off-map.
   _pin(ctx, wx, wz, sx, sz, W, H, color, label) {
     let x = sx(wx), y = sz(wz);
-    const pad = 30;
+    const pad = W < 300 ? 10 : 30;
     const off = x < pad || x > W - pad || y < pad || y > H - pad;
     if (off) {
       const dx = x - W / 2, dy = y - H / 2;

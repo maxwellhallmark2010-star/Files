@@ -11,7 +11,13 @@ npx http-server -p 8080 .      # or: python3 -m http.server 8080
 # open http://localhost:8080
 ```
 
-You can also host it for free with **GitHub Pages**: Settings → Pages → deploy from the `main` branch, root folder.
+### Host it on GitHub Pages (needed for multiplayer)
+
+Multiplayer uses peer-to-peer connections, which Claude's preview page blocks, so co-op only works on a normal website.
+
+1. On a free GitHub account, Pages needs a **public** repo: Settings → General → Danger Zone → Change visibility → Public.
+2. Settings → Pages → Build and deployment → Source: **Deploy from a branch** → branch `backrooms-game` (or `main` once merged), folder `/ (root)` → Save.
+3. After a minute the game is live at **https://maxwellhallmark2010-star.github.io/Files/**.
 
 ## Features (from the design sheets)
 
@@ -32,6 +38,11 @@ You can also host it for free with **GitHub Pages**: Settings → Pages → depl
 | Area variants per chunk (seeded): normal 95% / pool rooms 3% / jackpot 2% | ✔ |
 
 Also included:
+- **Mobile controls**: joystick, drag-to-look, and buttons for use, interact, flashlight, item, drink, run and crouch. Turn them on/off in Settings (Auto detects touch screens).
+- On-screen **pause** button (Resume, Save, Settings, Controls, Main Menu), plus a stats page: days survived, distance, items, kills, deaths, crafts
+- Toggleable **minimap** (N or the ◩ button), full **map** with zoom buttons, and a **compass**
+- **Almond water**: a healing pickup (H to drink, +45 health and full stamina)
+- Every menu panel and overlay has a ✕ close button
 - 3 save slots, autosave, Continue / Load / Delete, and seed entry
 - Settings: sensitivity, FOV, volume, quality, film grain, phone voice
 - Post-processing: bloom, grain, chromatic aberration and vignette
@@ -40,7 +51,7 @@ Also included:
 
 ## Controls
 
-`WASD` move · `Shift` sprint · `C` crouch · `E` interact (hold for generators) · `F` flashlight · `Click` shoot or place mine · `1/2/3` items · `Tab` crafting · `M` map · `Esc` pause
+`WASD` move · `Shift` sprint · `C` crouch · `E` interact (hold for generators) · `F` flashlight · `Click` shoot or place mine · `1/2/3` items · `H` drink almond water · `Tab` crafting · `M` map · `N` minimap · `Esc` pause
 
 ## Files
 

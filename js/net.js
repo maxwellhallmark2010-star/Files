@@ -4,6 +4,8 @@
 import * as Models from './models.js';
 
 const PREFIX = 'bkrm-lvl0-';
+// Where the full game (with multiplayer) is hosted.
+export const PLAY_URL = 'https://maxwellhallmark2010-star.github.io/Files/';
 const RELAY = new Set(['p', 'pickup', 'kart', 'mine', 'boom', 'step', 'shot']);
 
 export class Net {
@@ -19,6 +21,16 @@ export class Net {
 
   get active() { return this.isHost || this.isClient; }
 
+  // Why multiplayer can't run on this page, or '' if it can.
+  unavailableReason() {
+    const embedded = /claude|anthropic/i.test(location.hostname);
+    if (embedded || !window.RTCPeerConnection) {
+      return `Multiplayer can't run inside this preview page because it blocks peer-to-peer connections. Play the hosted version for co-op: ${PLAY_URL}`;
+    }
+    if (!window.Peer) return 'The multiplayer library failed to download. Check your internet connection and reload the page.';
+    return '';
+  }
+
   _peerOpts() {
     const h = (this.game.settings.peerHost || '').trim();
     if (!h) return { debug: 1 };
@@ -27,7 +39,8 @@ export class Net {
   }
 
   host(onCode, onError) {
-    if (!window.Peer) return onError('Multiplayer library failed to load.');
+    const why = this.unavailableReason();
+    if (why) return onError(why);
     const code = Array.from({ length: 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[(Math.random() * 32) | 0]).join('');
     this.peer = new window.Peer(PREFIX + code, this._peerOpts());
     this.peer.on('open', () => { this.isHost = true; onCode(code); });
@@ -45,7 +58,8 @@ export class Net {
   }
 
   join(code, onError) {
-    if (!window.Peer) return onError('Multiplayer library failed to load.');
+    const why = this.unavailableReason();
+    if (why) return onError(why);
     this.peer = new window.Peer(undefined, this._peerOpts());
     let opened = false;
     this.peer.on('error', (e) => onError(e.type === 'peer-unavailable' ? 'No game found with that code.' : `Network error: ${e.type || e}`));

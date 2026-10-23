@@ -36,6 +36,10 @@ export function initModels(tex) {
   M.ledGreen = new THREE.MeshStandardMaterial({ color: 0x003000, emissive: 0x20ff40, emissiveIntensity: 4 });
   M.lens = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff4dd, emissiveIntensity: 3 });
   M.body = new THREE.MeshStandardMaterial({ color: 0x3c4a5a, roughness: 0.8 });
+  M.bottle = new THREE.MeshStandardMaterial({ color: 0xeef4f6, transparent: true, opacity: 0.35, roughness: 0.05, metalness: 0, depthWrite: false });
+  M.almond = new THREE.MeshStandardMaterial({ color: 0xf2ead8, roughness: 0.3 });
+  M.cap = new THREE.MeshStandardMaterial({ color: 0x2f6fb5, roughness: 0.4 });
+  M.labelA = new THREE.MeshStandardMaterial({ color: 0xc89a4a, roughness: 0.6 });
 }
 export const materials = M;
 
@@ -171,6 +175,17 @@ export function makeItem(type) {
     const w1 = mesh(new THREE.TorusGeometry(0.08, 0.006, 6, 20, Math.PI), M.wireR, 0.15, 0.02, 0); w1.rotation.y = Math.PI / 2;
     const w2 = mesh(new THREE.TorusGeometry(0.1, 0.006, 6, 20, Math.PI), M.wireB, 0.17, 0.02, 0.02); w2.rotation.y = Math.PI / 2;
     g.add(w1, w2);
+  } else if (type === 'almond') {
+    // plastic bottle of milky almond water, lying on its side
+    const b = new THREE.Group();
+    b.add(mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.19, 18), M.almond, 0, 0, 0));
+    b.add(mesh(new THREE.CylinderGeometry(0.056, 0.056, 0.24, 18), M.bottle, 0, 0.01, 0, false));
+    b.add(mesh(new THREE.CylinderGeometry(0.0575, 0.0575, 0.07, 18), M.labelA, 0, 0, 0));
+    b.add(mesh(new THREE.CylinderGeometry(0.022, 0.05, 0.05, 14), M.bottle, 0, 0.155, 0, false));
+    b.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.025, 12), M.cap, 0, 0.19, 0));
+    b.rotation.z = Math.PI / 2;
+    b.position.y = 0.056;
+    g.add(b);
   } else if (type === 'gunpowder') {
     const can = mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.22, 24), M.powder, 0, 0.11, 0);
     const lid = mesh(new THREE.CylinderGeometry(0.093, 0.093, 0.03, 24), M.darkMetal, 0, 0.235, 0);

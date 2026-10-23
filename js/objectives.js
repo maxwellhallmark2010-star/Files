@@ -5,6 +5,7 @@ import { mulberry32, hash } from './util.js';
 const T = {
   metal: (n) => ({ type: 'collect', key: 'metal', target: n, label: `Collect ${n} scrap metal` }),
   electronics: (n) => ({ type: 'collect', key: 'electronics', target: n, label: `Collect ${n} electronics` }),
+  almond: (n) => ({ type: 'collect', key: 'almond', target: n, label: `Collect ${n} bottles of almond water` }),
   gunpowder: (n) => ({ type: 'collect', key: 'gunpowder', target: n, label: `Collect ${n} gunpowder` }),
   craftGun: () => ({ type: 'craft', key: 'gun', target: 1, label: 'Craft a gun' }),
   craftMine: (n) => ({ type: 'craft', key: 'landmine', target: n, label: n > 1 ? `Craft ${n} landmines` : 'Craft a landmine' }),
@@ -28,7 +29,7 @@ export function objectivesForDay(seed, day) {
     const pool = [
       () => T.metal(4 + Math.min(8, day)), () => T.electronics(2 + Math.floor(day / 2)), () => T.gunpowder(2),
       () => T.craftMine(2), () => T.checkGen(2), () => T.pool(), () => T.killSpider(), () => T.killBulb(),
-      () => T.travel(120 + day * 20),
+      () => T.travel(120 + day * 20), () => T.almond(2),
     ];
     if (day >= 4) pool.push(() => T.craftKart());
     if (day >= 5) pool.push(() => T.jackpot(), () => T.restore());

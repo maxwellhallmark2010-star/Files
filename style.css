@@ -99,3 +99,67 @@ button:disabled { opacity: .35; cursor: default; }
 #fadetext small { font-size: 15px; color: var(--dim); letter-spacing: 1px; }
 
 @media (max-width: 700px) { .menu-left { left: 16px; right: 16px; } .panel { left: 16px; right: 16px; width: auto; top: auto; bottom: 16px; max-height: 50vh; } #objectives { max-width: 60vw; font-size: 13px; } }
+
+/* HUD buttons, compass, minimap */
+.hbtn { pointer-events: auto; font-size: 13px; letter-spacing: 1px; text-align: center; min-width: 44px; height: 40px; padding: 0 10px; border: 1px solid rgba(239,230,196,.45); background: rgba(10,8,4,.55); border-radius: 4px; }
+.hbtn:hover:not(:disabled)::before, .tb:hover::before, .close:hover::before { content: none !important; }
+.hbtn:hover, .hbtn:focus-visible { border-color: var(--acc); color: var(--acc); }
+#hud-buttons { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); right: max(14px, env(safe-area-inset-right, 0px)); display: flex; gap: 8px; }
+#minimap { position: absolute; top: 64px; right: max(14px, env(safe-area-inset-right, 0px)); width: 190px; height: 190px; border: 1px solid rgba(239,230,196,.4); border-radius: 50%; background: rgba(8,7,4,.7); }
+#toast { top: 264px; }
+body:not(.minimap-on) #toast { top: 64px; }
+#compass { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: 240px; height: 22px; overflow: hidden; border-bottom: 1px solid rgba(239,230,196,.35); font-size: 12px; mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent); }
+#compass-strip { position: absolute; top: 2px; left: 0; white-space: nowrap; }
+#compass-strip span { display: inline-block; width: 30px; text-align: center; color: var(--dim); }
+#compass-strip span.c { color: var(--fg); font-weight: bold; }
+.compass-mark { position: absolute; left: 50%; bottom: 0; width: 2px; height: 6px; background: var(--acc); }
+#power { top: 44px; }
+.close { font-size: 18px; padding: 2px 10px; border: 1px solid rgba(239,230,196,.4); border-radius: 4px; line-height: 1.2; }
+.panel .close { position: sticky; top: 0; float: right; margin: -8px -10px 0 0; background: var(--panel); }
+.map-tools { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); right: max(14px, env(safe-area-inset-right, 0px)); display: flex; gap: 8px; }
+.stats { margin-top: 22px; color: var(--dim); font-size: 14px; display: grid; grid-template-columns: auto auto; gap: 4px 18px; justify-content: center; text-align: left; font-variant-numeric: tabular-nums; }
+.stats b { color: var(--fg); font-weight: normal; }
+
+/* touch controls */
+#touch { position: fixed; inset: 0; z-index: 4; touch-action: none; user-select: none; -webkit-user-select: none; }
+#look-zone { position: absolute; inset: 0; }
+#stick-zone { position: absolute; left: 0; bottom: 0; width: 45%; height: 60%; }
+#stick-base { position: absolute; left: 110px; top: calc(100% - 130px); width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(239,230,196,.35); background: rgba(0,0,0,.2); }
+#stick-base.active { border-color: rgba(232,196,90,.7); }
+#stick-knob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: rgba(239,230,196,.45); }
+.stick-hint { position: absolute; left: 20px; bottom: 16px; font-size: 11px; letter-spacing: 2px; color: var(--dim); }
+#t-buttons { position: absolute; right: max(14px, env(safe-area-inset-right, 0px)); bottom: max(14px, env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(3, 60px); gap: 10px; direction: rtl; }
+.tb { width: 60px; height: 60px; border-radius: 50%; border: 2px solid rgba(239,230,196,.45); background: rgba(10,8,4,.45); font-size: 13px; text-align: center; padding: 0; direction: ltr; touch-action: none; }
+.tb.big { grid-row: span 2; height: 130px; border-radius: 30px; border-color: rgba(232,196,90,.7); }
+.tb.on, .tb:active { background: rgba(232,196,90,.35); color: #fff; }
+body.touch-mode #hotbar { bottom: auto; top: max(12px, env(safe-area-inset-top, 0px)); left: max(14px, env(safe-area-inset-left, 0px)); transform: none; gap: 5px; }
+body.touch-mode #hotbar .hs { width: 68px; padding: 3px 4px; font-size: 10px; line-height: 1.25; }
+body.touch-mode #bars { left: 50%; transform: translateX(-50%); bottom: 14px; width: 180px; }
+body.touch-mode #objectives { top: 80px; left: max(14px, env(safe-area-inset-left, 0px)); font-size: 11px; max-width: 34vw; }
+body.touch-mode #objectives .day { font-size: 14px; margin-bottom: 2px; }
+body.touch-mode #compass { top: 70px; width: 150px; }
+body.touch-mode #power { top: 96px; font-size: 13px; }
+body.touch-mode #minimap { top: 62px; width: 112px; height: 112px; }
+body.touch-mode #toast { top: 62px; right: 140px; font-size: 13px; }
+body.touch-mode #crosshair { width: 6px; height: 6px; margin: -3px; }
+body.touch-mode #lockhint { display: none !important; }
+body.touch-mode #subtitles { bottom: 170px; font-size: 15px; }
+@media (max-width: 700px) {
+  #compass { width: 150px; }
+  #minimap { width: 130px; height: 130px; }
+  body.touch-mode #bars { width: 120px; }
+  body.touch-mode #hotbar .hs { width: 58px; }
+  .hbtn { min-width: 40px; padding: 0 6px; }
+}
+@media (max-height: 430px) {
+  body.touch-mode #t-buttons { grid-template-columns: repeat(3, 50px); gap: 8px; }
+  body.touch-mode .tb { width: 50px; height: 50px; font-size: 11px; }
+  body.touch-mode .tb.big { height: 108px; border-radius: 25px; }
+  body.touch-mode #minimap { width: 88px; height: 88px; top: 60px; }
+  body.touch-mode #toast { right: 112px; }
+  body.touch-mode #compass { top: 64px; width: 120px; }
+  body.touch-mode .hbtn { height: 36px; }
+  #stick-base { width: 100px; height: 100px; margin: -50px 0 0 -50px; }
+  #stick-knob { width: 46px; height: 46px; margin: -23px 0 0 -23px; }
+  .map-legend { font-size: 11px; gap: 10px; }
+}

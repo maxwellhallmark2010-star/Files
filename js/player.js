@@ -147,7 +147,7 @@ export class Player {
     const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
     let mx = fx * input.fwd + rx * input.side, mz = fz * input.fwd + rz * input.side;
     const ml = Math.hypot(mx, mz);
-    if (ml > 0) { mx /= ml; mz /= ml; }
+    if (ml > 1) { mx /= ml; mz /= ml; } // analog joystick keeps partial speeds
     const accel = ml > 0 ? 10 : 12;
     this.vel.x = damp(this.vel.x, mx * speed, accel, dt);
     this.vel.z = damp(this.vel.z, mz * speed, accel, dt);
@@ -155,6 +155,7 @@ export class Player {
     w.collideCircle(p, RADIUS);
     const moved = Math.hypot(p.x - this.pos.x, p.z - this.pos.z);
     this.pos.x = p.x; this.pos.z = p.z;
+    if (g.state.stats) g.state.stats.walked += moved;
 
     // head bob + footsteps
     const hs = moved / Math.max(dt, 1e-4);

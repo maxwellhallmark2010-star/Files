@@ -307,5 +307,5 @@ export class Entities {
   }
 }
 
-export const ITEM_NAMES = { metal: 'Scrap Metal', electronics: 'Electronics', gunpowder: 'Gunpowder' };
+export const ITEM_NAMES = { metal: 'Scrap Metal', electronics: 'Electronics', gunpowder: 'Gunpowder', almond: 'Almond Water' };
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3();

@@ -16,6 +16,7 @@ import { Net } from './net.js';
 import { objectivesForDay, dialogueForDay } from './objectives.js';
 import * as Save from './save.js';
 import { preset, pixelRatio } from './quality.js';
+import { TouchControls, wantsTouch } from './touch.js';
 
 const MENU_SEED = 90210;
 
@@ -71,6 +72,7 @@ class Game {
     this.mode = 'menu';
     this.ui.showMenu();
     this._bindMenu();
+    this.touch = new TouchControls(this);
     document.getElementById('fps').classList.toggle('hidden', !this.settings.showFps);
     this.last = performance.now();
     requestAnimationFrame((t) => this.frame(t));
@@ -92,6 +94,12 @@ class Game {
     on('btn-psettings', () => this.ui.openPanel('settings', true));
     on('btn-pcontrols', () => this.ui.openPanel('controls', true));
     on('btn-quit', () => this.quitToMenu());
+    on('h-pause', () => { this.pause(); document.exitPointerLock?.(); });
+    on('h-map', () => this.openOverlay('map'));
+    on('h-bag', () => this.openOverlay('craft'));
+    on('h-mini', () => this.toggleMinimap());
+    on('craft-close', () => this.closeOverlay());
+    on('map-close', () => this.closeOverlay());
   }
 
   _startMenuWorld() {
@@ -122,9 +130,10 @@ class Game {
   freshState(seed) {
     return {
       seed, day: 1, phone: 'ringing', objectives: [],
-      inv: { metal: 0, electronics: 0, gunpowder: 0, gun: false, ammo: 0, mines: 0 },
+      inv: { metal: 0, electronics: 0, gunpowder: 0, almond: 0, gun: false, ammo: 0, mines: 0 },
       picked: new Set(), karts: [], mines: [], checkedGens: new Set(), explored: new Set(),
       power: true, player: null, visited: {},
+      stats: { walked: 0, items: 0, kills: 0, deaths: 0, crafted: 0 },
     };
   }
 
@@ -143,6 +152,7 @@ class Game {
       picked: new Set(d.picked || []), karts: d.karts || [], mines: d.mines || [],
       checkedGens: new Set(d.checkedGens || []), explored: new Set(d.explored || []),
       power: d.power !== false, player: d.player, visited: d.visited || {},
+      stats: { ...st.stats, ...(d.stats || {}) },
     });
     this.startSession(st, slot);
   }
@@ -153,7 +163,7 @@ class Game {
     return {
       version: 1, seed: st.seed, day: st.day, phone: st.phone === 'talking' ? 'done' : st.phone, objectives: st.objectives,
       inv: st.inv, picked: [...st.picked], karts: st.karts, mines: st.mines, checkedGens: [...st.checkedGens],
-      explored: explored.slice(-40000), power: st.power, visited: st.visited,
+      explored: explored.slice(-40000), power: st.power, visited: st.visited, stats: st.stats,
       player: { x: p.pos.x, z: p.pos.z, yaw: p.yaw, health: Math.max(1, p.health) },
     };
   }
@@ -202,6 +212,7 @@ class Game {
     this.ui.show('menu', false);
     this.ui.closePanel();
     this.ui.show('hud');
+    this.applyMinimap();
     this.ui.fade(false);
     this.ui.refresh();
     if (st.phone === 'ringing') this.ui.toast('The phone is ringing. Answer it (E).');
@@ -226,6 +237,7 @@ class Game {
     this.mode = 'menu';
     this.paused = false;
     this.overlay = null;
+    this.applyMinimap();
     document.exitPointerLock?.();
     this._startMenuWorld();
     this.ui.showMenu();
@@ -236,6 +248,8 @@ class Game {
 
   hostGame(status) {
     this.net.close();
+    const why = this.net.unavailableReason();
+    if (why) { status(why); return; }
     status('Opening room…');
     this.net.host((code) => {
       status(`Room code: ${code}`);
@@ -276,12 +290,54 @@ class Game {
 
   // ---------------- pause / overlays ----------------
 
+  get touchMode() { return wantsTouch(this.settings); }
+
+  // Pointer lock is for mouse play only; touch players look by dragging.
+  lock() {
+    if (this.touchMode) return;
+    try { const r = this.canvas.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* not allowed here */ }
+  }
+
   resume() {
     this.paused = false;
     this.ui.show('pause', false);
     this.ui.closePanel();
     this.ui.show('lockhint', false);
-    this.canvas.requestPointerLock?.();
+    this.lock();
+  }
+
+  toggleMinimap() {
+    this.settings.minimap = !this.settings.minimap;
+    Save.saveSettings(this.settings);
+    this.applyMinimap();
+  }
+
+  applyMinimap() {
+    const on = !!this.settings.minimap && this.mode === 'play';
+    this.ui.show('minimap', on);
+    document.body.classList.toggle('minimap-on', on);
+    document.getElementById('h-mini').classList.toggle('on', on);
+  }
+
+  cycleItem() {
+    const inv = this.state.inv;
+    const order = [1, 2, 3].filter((n) => n === 1 || (n === 2 && inv.gun) || (n === 3 && inv.mines > 0));
+    const i = order.indexOf(this.player.slot);
+    this.player.selectSlot(order[(i + 1) % order.length]);
+    this.ui.refresh();
+  }
+
+  drinkAlmond() {
+    const st = this.state, p = this.player;
+    if (!st || p.dead) return;
+    if (!(st.inv.almond > 0)) { this.ui.toast('No almond water. Look for bottles on the floor.'); return; }
+    if (p.health >= 100 && p.stamina >= 100) { this.ui.toast('You feel fine. Save it for later.'); return; }
+    st.inv.almond--;
+    p.health = Math.min(100, p.health + 45);
+    p.stamina = 100;
+    this.audio.play('stepWater', null);
+    this.ui.toast('Almond water: +45 health, stamina refilled');
+    this.ui.refresh();
   }
 
   pause() {
@@ -290,6 +346,7 @@ class Game {
     this.overlay = null;
     this.ui.show('craft', false); this.ui.show('mapview', false);
     this.ui.show('pause');
+    this.ui.renderStats();
     document.getElementById('btn-save').disabled = this.net.isClient;
   }
 
@@ -305,7 +362,7 @@ class Game {
   closeOverlay(relock = true) {
     this.ui.show('craft', false); this.ui.show('mapview', false);
     this.overlay = null;
-    if (relock) this.canvas.requestPointerLock?.();
+    if (relock) this.lock();
   }
 
   applySettings() {
@@ -320,6 +377,7 @@ class Game {
     this.renderer.setPixelRatio(pixelRatio(s));
     this.effects.composer.setPixelRatio(pixelRatio(s));
     document.getElementById('fps').classList.toggle('hidden', !s.showFps);
+    this.applyMinimap();
     this.resize();
   }
 
@@ -342,12 +400,14 @@ class Game {
     });
     this.canvas.addEventListener('mousedown', (e) => {
       if (this.mode !== 'play' || this.paused) return;
-      if (document.pointerLockElement !== this.canvas) { this.canvas.requestPointerLock?.(); return; }
+      if (this.touchMode) return;
+      if (document.pointerLockElement !== this.canvas) { this.lock(); return; }
       if (e.button === 0) this.player.use();
     });
     addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT') return;
       if (e.code === 'Tab') e.preventDefault();
+      if (this.mode === 'menu' && e.code === 'Escape') { this.ui.closePanel(); return; }
       if (this.mode !== 'play') return;
       if (e.code === 'Escape') { if (this.overlay) this.closeOverlay(); else if (this.paused) this.resume(); return; }
       if (this.paused) return;
@@ -361,6 +421,8 @@ class Game {
         case 'Digit2': this.player.selectSlot(2); this.ui.refresh(); break;
         case 'Digit3': this.player.selectSlot(3); this.ui.refresh(); break;
         case 'KeyE': this._pressE(); break;
+        case 'KeyH': this.drinkAlmond(); break;
+        case 'KeyN': this.toggleMinimap(); break;
       }
     });
     addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -370,12 +432,14 @@ class Game {
   input() {
     const k = this.keys;
     if (this.paused || this.overlay || this.player.dead) return { fwd: 0, side: 0, sprint: false, crouch: false };
-    return {
+    const kb = {
       fwd: (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0),
       side: (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0),
       sprint: k.has('ShiftLeft') || k.has('ShiftRight'),
-      crouch: k.has('KeyC') || k.has('ControlLeft'),
+      crouch: k.has('KeyC') || k.has('ControlLeft') || (this.touch.enabled && this.touch.crouch),
     };
+    const t = this.touch.enabled && this.touch.input();
+    return t ? { ...t, crouch: t.crouch || kb.crouch } : kb;
   }
 
   _pressE() {
@@ -403,6 +467,7 @@ class Game {
         this.net.send({ t: 'pickup', id: t.id });
         this.audio.play('pickup', null);
         this.ui.toast(`+1 ${ITEM_NAMES[it.data.type]}`);
+        st.stats.items++;
         this.progress('collect', it.data.type);
         break;
       }
@@ -514,6 +579,7 @@ class Game {
       this.ui.toast('Go-kart built! It\'s pinged on your map (M).');
     }
     this.audio.play('craft', null);
+    this.state.stats.crafted++;
     this.progress('craft', key);
     this.ui.refresh();
     this.ui.renderCraft();
@@ -550,6 +616,7 @@ class Game {
     const p = this.player;
     if (p.dead) return;
     p.dead = true; p.health = 0;
+    this.state.stats.deaths++;
     if (p.kart) { this.entities.exitKart(p.kart); p.kart = null; }
     const msg = {
       spider: 'The spider got you.', bulb: 'You stared at the light too long.', explosion: 'You stood too close to the blast.',
@@ -571,6 +638,7 @@ class Game {
 
   onMonsterKilled(kind) {
     this.progress('kill', kind);
+    this.state.stats.kills++;
     this.ui.toast(kind === 'spider' ? 'The spider is dead.' : 'The bulb shattered.');
   }
 
@@ -591,6 +659,8 @@ class Game {
       this.effects.update(dt, this.time);
       this.effects.render();
     }
+    const wantTouch = this.mode === 'play' && !this.paused && !this.overlay && this.touchMode;
+    if (this.touch && wantTouch !== this.touch.enabled) this.touch.setEnabled(wantTouch);
     if (this.settings.showFps) {
       this.fpsN = (this.fpsN || 0) + 1;
       if (now - (this.fpsT || 0) > 500) {
@@ -625,6 +695,9 @@ class Game {
     this.ui.bars();
     this.ui.show('lockhint', !this.paused && !this.overlay && document.pointerLockElement !== this.canvas);
     if (this.overlay === 'map') this.ui.drawMap();
+    this.miniT = (this.miniT ?? 0) - dt;
+    if (this.settings.minimap && this.miniT <= 0) { this.miniT = 0.1; this.ui.drawMap(true); }
+    this.ui.updateCompass(p.yaw);
 
     // exploration, visits and travel distance
     this.exploreT -= dt;

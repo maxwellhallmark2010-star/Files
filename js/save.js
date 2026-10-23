@@ -4,7 +4,7 @@ const SETTINGS = 'backrooms.settings';
 export const SLOTS = 3;
 
 export const DEFAULT_SETTINGS = {
-  sensitivity: 1, invertY: false, fov: 75, volume: 0.8, quality: 'high', grain: true, voice: true, peerHost: '', resScale: 0, showFps: false,
+  sensitivity: 1, invertY: false, fov: 75, volume: 0.8, quality: 'high', grain: true, voice: true, peerHost: '', resScale: 0, showFps: false, touch: 'auto', minimap: true,
 };
 
 function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
