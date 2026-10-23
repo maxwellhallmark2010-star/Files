@@ -57,14 +57,14 @@ export class UI {
       el.querySelectorAll('[data-slot]').forEach((b) => b.onclick = () => {
         const i = +b.dataset.slot;
         if (kind === 'new') {
-          if (saves[i] && !confirm('Overwrite this save?')) return;
+          if (saves[i] && !this._confirm(b, 'Click again to overwrite')) return;
           const raw = ($('seed')?.value || '').trim();
           const seed = raw ? (/^-?\d+$/.test(raw) ? +raw : [...raw].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7)) : null;
           g.newGame(i, seed);
         } else g.loadGame(i);
       });
       el.querySelectorAll('[data-del]').forEach((b) => b.onclick = () => {
-        if (confirm('Delete this save permanently?')) { deleteSave(+b.dataset.del); this.openPanel(kind, inPause); $('btn-continue').disabled = !listSaves().some(Boolean); }
+        if (this._confirm(b, 'Click again to delete')) { deleteSave(+b.dataset.del); this.openPanel(kind, inPause); $('btn-continue').disabled = !listSaves().some(Boolean); }
       });
     } else if (kind === 'mp') {
       el.innerHTML = `<h2>CO-OP MULTIPLAYER</h2>
@@ -110,6 +110,16 @@ export class UI {
         • The shadow creature only wants to scare you.<br>
         • If the lights cut out, press F and find the generator highlighted on your map.</p>`;
     }
+  }
+
+  // Two-click confirmation (browser confirm() dialogs are blocked in some embeds).
+  _confirm(btn, text) {
+    if (btn.dataset.armed) return true;
+    btn.dataset.armed = '1';
+    const label = btn.textContent;
+    btn.textContent = text;
+    setTimeout(() => { delete btn.dataset.armed; btn.textContent = label; }, 3000);
+    return false;
   }
 
   toast(msg) {
