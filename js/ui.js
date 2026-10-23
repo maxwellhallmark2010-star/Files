@@ -73,12 +73,18 @@ export class UI {
       });
     } else if (kind === 'mp') {
       el.innerHTML = `<h2>CO-OP MULTIPLAYER</h2>
-        <p class="hint">Peer-to-peer over the internet. The host's world, monsters, power and vehicles are shared; each player keeps their own objectives. Host progress saves to the host's slot.</p>
+        <p class="hint">The host gets a 5-letter room code; friends type it in to join. The host's world, monsters, power and vehicles are shared; each player keeps their own objectives. Host progress saves to the host's slot.</p>
+        <p class="hint">${g.net.inClaude ? 'On this Claude page, every player must be signed in to Claude and have the game shared with them (Share menu → invite).' : 'Connects players directly over the internet.'}</p>
         <div class="row"><button class="btn" id="mp-host">Host a game</button><span class="hint">uses your most recent save, or a new world</span></div>
         <div class="row"><input type="text" id="mp-code" placeholder="ROOM CODE" maxlength="5" style="text-transform:uppercase"><button class="btn" id="mp-join">Join</button></div>
         <div id="mp-status" class="hint"></div>`;
       const why = g.net.unavailableReason();
-      if (why) { $('mp-status').textContent = why; $('mp-host').disabled = $('mp-join').disabled = true; }
+      if (why) {
+        $('mp-status').textContent = why;
+        $('mp-host').disabled = $('mp-join').disabled = true;
+        // still finding out whether the live room is available: check again shortly
+        if (!g.net.roomReady) setTimeout(() => { if (!el.classList.contains('hidden') && el.querySelector('#mp-host')) this.openPanel('mp', inPause); }, 800);
+      }
       $('mp-host').onclick = () => g.hostGame((msg) => { $('mp-status').textContent = msg; });
       $('mp-join').onclick = () => {
         const c = $('mp-code').value.trim();
