@@ -1,0 +1,5 @@
+*.xcodeproj
+xcuserdata/
+App/Info.plist
+Broadcast/Info.plist
+*.entitlements
