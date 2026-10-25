@@ -866,7 +866,7 @@ class Rag{
     this.p=BIND.map(([bx,by,bz],i)=>{const X=x+bx*cy+bz*sy,Z=z-bx*sy+bz*cy;return {x:X,y:by,z:Z,px:X,py:by,pz:Z,ax:0,ay:0,az:0,m:MASS[i],im:1/MASS[i],r:RAD[i]};});
     this.look=makeLook();this.M=buildMaterials(this.look);
     const ch=buildCharacter(this.look,this.M);this.rig=ch.rig;this.bones=ch.bones;this.mesh=ch.mesh;tuneEnv(this.rig,.45);scene.add(this.rig);
-    this.zPrev=BINDF.map(f=>f.Z.slice());this.fr=[];
+    this.zPrev=BINDF.map(f=>f.Z.slice());this.fr=[];this.broken={arm:[false,false],leg:[false,false]};this.limbHits={};this.crawlT=0;this.crawling=false;
     this.state='stand';this.stateT=0;this.t=rand(0,20);
     this.hp=100;this.stun=0;this.leg=[1,1];this.arm=[1,1];this.wounds=[];
     this.plant=[[this.p[FT[0]].x,this.p[FT[0]].z],[this.p[FT[1]].x,this.p[FT[1]].z]];this.fyaw=[yaw,yaw];
@@ -911,7 +911,7 @@ class Rag{
       for(let i=0;i<n;i++)collide(p[i],this.near);
     }
     if(this.grab)p[this.grab.i].im=1/p[this.grab.i].m;
-    const dec=.85*GRAV*dt,n=kin?12:16;
+    const dec=.85*GRAV*dt*(this.pulling?.15:1),n=kin?12:16;
     for(let i=0;i<n;i++){const q=p[i];
       if(q.y<=q.r+.002){const vy=q.y-q.py;if(vy<0)q.py=q.y+vy*.1;
         const vx=(q.x-q.px)/dt,vz=(q.z-q.pz)/dt,sp=Math.hypot(vx,vz);const ns=Math.max(0,sp-dec),k=sp>1e-6?ns/sp:0;q.px=q.x-vx*k*dt;q.pz=q.z-vz*k*dt;}}
@@ -968,8 +968,11 @@ class Rag{
     const hunch=this.hunchFromWounds();
     const lean=hunch+this.flinch*.55+spd*.06+Math.sin(this.t*.9)*.02;
     this.nod=hunch*.3+(this.pain>.3?.15:0);
-    const H0=.945*(.66+.34*Math.sqrt(minLeg))-hunch*.06;
-    this.upperBodyHold(A,lean,H0,520);
+    let H0=.968*(.66+.34*Math.sqrt(minLeg))-hunch*.06;
+    // legs can't stretch: the hips settle while the feet are spread, which gives the walk its natural bob
+    for(let s=0;s<2;s++){if(this.stepS&&this.stepS.i===s)continue;const h=p[HIP[s]],hor=Math.hypot(this.plant[s][0]-h.x,this.plant[s][1]-h.z),R=L_THIGH+L_SHIN-.005;
+      H0=Math.min(H0,.08+Math.sqrt(Math.max(0,R*R-hor*hor))+.05);}
+    this.upperBodyHold(A,lean,H0,420);
     // ground reaction on the hips: drive / damp / centre over feet
     const v=this.cvel(),com=this.com();
     const f0=this.footXZ(0),f1=this.footXZ(1),sc=[(f0[0]+f1[0])/2,(f0[1]+f1[1])/2];
@@ -985,7 +988,8 @@ class Rag{
       const dir=norm([cp[0]-dseg.c[0],0,cp[1]-dseg.c[1]]);
       const i=Math.hypot(cp[0]-f0[0],cp[1]-f0[1])>Math.hypot(cp[0]-f1[0],cp[1]-f1[1])?0:1;
       const R=this.R(),sg=i?1:-1,ls=this.leg[i],vs=Math.hypot(v[0],v[1]);
-      let tx=cp[0]+R[0]*sg*.09+dir[0]*(.03+Math.min(.15,vs*.05)),tz=cp[1]+R[2]*sg*.09+dir[2]*(.03+Math.min(.15,vs*.05));
+      const walk=spd>.25&&this.stun<.1,ov=walk?.1+.16*Math.min(1,vs/1.3):.03+Math.min(.15,vs*.05);
+      let tx=cp[0]+R[0]*sg*.085+dir[0]*ov,tz=cp[1]+R[2]*sg*.085+dir[2]*ov;
       const o=i?f0:f1,stride=.22+.45*ls;let ox=tx-o[0],oz=tz-o[1],od=Math.hypot(ox,oz);if(od>stride){tx=o[0]+ox/od*stride;tz=o[1]+oz/od*stride;}
       const h=p[HIP[i]];let hx=tx-h.x,hz=tz-h.z,hd=Math.hypot(hx,hz);if(hd>.5){tx=h.x+hx/hd*.5;tz=h.z+hz/hd*.5;}
       const stumbling=this.stun>.08||Math.hypot(v[0]-vd[0],v[1]-vd[1])>.85;
@@ -1022,7 +1026,7 @@ class Rag{
       const Fq=p[FT[s]],K=p[KN[s]],H=p[HIP[s]];
       const st=this.stepS&&this.stepS.i===s?this.stepS:null;let fx,fy,fz;
       if(st){st.t+=dt;const u=Math.min(1,st.t/st.T),e=smooth(u);
-        fx=lerp(st.sx,st.tx,e);fz=lerp(st.sz,st.tz,e);fy=.08+Math.sin(PI*u)*(.06+.06*this.leg[s]);
+        fx=lerp(st.sx,st.tx,e);fz=lerp(st.sz,st.tz,e);fy=.08+Math.sin(PI*u)**1.4*(.035+.035*this.leg[s]);
         let dy=((this.yaw-st.y0+PI)%TAU+TAU)%TAU-PI;this.fyaw[s]=st.y0+dy*e;
         if(u>=1){this.plant[s]=[fx,fz];this.stepS=null;this.stepCool=.02;}}
       else{fx=this.plant[s][0];fz=this.plant[s][1];fy=.08;}
@@ -1046,10 +1050,10 @@ class Rag{
     const p=this.p,f=this.fr[B_PELV],fu=this.fr[B_CHEST];if(!f)return;
     for(let s=0;s<2;s++){
       const H=p[HIP[s]],K=p[KN[s]],Fq=p[FT[s]];const mid=[(H.x+Fq.x)/2,(H.y+Fq.y)/2,(H.z+Fq.z)/2];
-      const off=dot(sub(Pv(K),mid),f.Z);if(off<.02){const k=(.02-off)*900;K.ax+=f.Z[0]*k;K.ay+=f.Z[1]*k;K.az+=f.Z[2]*k;
+      const off=this.broken.leg[s]?1:dot(sub(Pv(K),mid),f.Z);if(off<.02){const k=(.02-off)*900;K.ax+=f.Z[0]*k;K.ay+=f.Z[1]*k;K.az+=f.Z[2]*k;
         for(const q of [H,Fq]){const r=k*K.m/(2*q.m);q.ax-=f.Z[0]*r;q.ay-=f.Z[1]*r;q.az-=f.Z[2]*r;}}
       const S=p[SH[s]],E=p[EL[s]],Hh=p[HA[s]];const up=norm(sub(Pv(E),Pv(S)));
-      if(dot(up,fu.Y)<-.4){const m2=[(S.x+Hh.x)/2,(S.y+Hh.y)/2,(S.z+Hh.z)/2];const o2=dot(sub(Pv(E),m2),fu.Z);
+      if(!this.broken.arm[s]&&dot(up,fu.Y)<-.4){const m2=[(S.x+Hh.x)/2,(S.y+Hh.y)/2,(S.z+Hh.z)/2];const o2=dot(sub(Pv(E),m2),fu.Z);
         if(o2>-.01){const k=(o2+.01)*500;E.ax-=fu.Z[0]*k;E.ay-=fu.Z[1]*k;E.az-=fu.Z[2]*k;}}
     }
   }
@@ -1066,6 +1070,7 @@ class Rag{
     for(const w of this.wounds){if(w.kind==='stomach'||w.kind==='chest')gut=true;if(w.kind==='thigh'||w.kind==='shin')leg=true;}
     const fresh=Math.max(.35,1-(t-this.lastHit)/12),pel=p[PELV],U=f.Y,Fw=f.Z;
     for(let s=0;s<2;s++){
+      if(this.broken.leg[s])continue;
       const H=p[HIP[s]];let T;
       if(gut)T=add(add(Pv(H),mul(Fw,.3)),mul(U,-.18));
       else{const w=Math.sin(t*1.7+s*1.9);T=add(add(Pv(H),mul(U,-.36+.08*w*fresh)),mul(Fw,.12+(leg?.12:0)+.12*w*fresh));}
@@ -1073,7 +1078,22 @@ class Rag{
     }
     if(gut){const T=add(add(Pv(pel),mul(U,.22)),mul(Fw,.14));springR(p[CHEST],T[0],T[1],T[2],40*tone,6,pel,[pel]);}
     const hd=p[HEAD];
-    for(let s=0;s<2;s++){if(this.clutch[s]||this.arm[s]<.4)continue;
+    // a broken leg means no standing up: drag themselves away from the shooter
+    let crawlHand=-1;this.crawling=false;this.crawlHand=-1;
+    this.pulling=false;
+    if((this.broken.leg[0]||this.broken.leg[1])&&this.hp>10&&this.stateT>1.6&&!this.grab){
+      this.crawlT+=dt;const cyc=1.15,ph=this.crawlT%cyc,k=Math.floor(this.crawlT/cyc)%2;
+      for(const s of [k,1-k])if(!this.clutch[s]&&this.arm[s]>.4){crawlHand=s;break;}
+      if(crawlHand<0)for(const s of [k,1-k])if(this.arm[s]>.4){crawlHand=s;break;}
+      if(crawlHand>=0){
+        this.crawling=true;this.crawlHand=crawlHand;const ch=p[CHEST];let d=[ch.x-player.x,0,ch.z-player.z];d=norm(d);const h=p[HA[crawlHand]];
+        if(ph<.5){const T=add(Pv(ch),mul(d,.55));springR(h,T[0],.05,T[2],240*tone,22,null,[ch]);this.anchor=null;}
+        else{if(!this.anchor)this.anchor=[h.x,h.z];springR(h,this.anchor[0],.04,this.anchor[1],380,30,null,[ch]);
+          this.pulling=true;const pull=7.5*Math.max(.6,tone)*Math.sin((ph-.5)/(cyc-.5)*PI);for(const i of [NECK,CHEST,PELV,HEAD]){p[i].ax+=d[0]*pull;p[i].az+=d[2]*pull;}
+          p[HEAD].ay+=3*tone;p[NECK].ay+=2*tone;}
+      }
+    }
+    for(let s=0;s<2;s++){if(this.clutch[s]||this.arm[s]<.4||s===crawlHand)continue;
       if(this.stateT<.9){const T=add(Pv(hd),mul(this.fallDir,.32));springR(p[HA[s]],T[0],.05,T[2],140,16,null,[p[CHEST]]);}
       else{const fu=this.fr[B_CHEST];const T=add(add(add(Pv(p[CHEST]),mul(fu.Z,.1)),mul(fu.X,(s?-1:1)*.12)),mul(fu.Y,-.05+.04*Math.sin(t+s)));springR(p[HA[s]],T[0],T[1],T[2],14*tone,4,p[CHEST],[p[CHEST]]);}
     }
@@ -1127,7 +1147,7 @@ class Rag{
       if(this.clutch[0]&&this.clutch[1])break;
       if(upright&&w.kind==='shin')continue;
       const pos=this.woundPos(w);let best=-1,bd=1e9;
-      for(let s=0;s<2;s++){if(this.clutch[s]||this.arm[s]<.35||(w.side===s&&(w.kind==='uarm'||w.kind==='farm')))continue;
+      for(let s=0;s<2;s++){if(this.clutch[s]||this.arm[s]<.35||s===this.crawlHand||(w.side===s&&(w.kind==='uarm'||w.kind==='farm')))continue;
         const h=p[HA[s]];const d=Math.hypot(h.x-pos[0],h.y-pos[1],h.z-pos[2]);if(d<bd){bd=d;best=s;}}
       if(best<0)continue;this.clutch[best]=w;w.held=true;
     }
@@ -1163,6 +1183,15 @@ class Rag{
     if(part.kind==='thigh')this.leg[part.side]*=1-.45*Math.min(1,wp.dmg);
     if(part.kind==='shin')this.leg[part.side]*=1-.32*Math.min(1,wp.dmg);
     if(part.kind==='uarm'||part.kind==='farm')this.arm[part.side]*=1-.75*Math.min(1,wp.dmg);
+    // fractures: a limb bone can snap; a second hit on the same limb always does
+    let snapped=null;
+    if(part.side!=null){
+      const limb=(part.kind==='uarm'||part.kind==='farm')?'arm':'leg',sd=part.side,key=limb+sd;
+      this.limbHits[key]=(this.limbHits[key]||0)+1;
+      if(!this.broken[limb][sd]&&(this.limbHits[key]>1||Math.random()<clamp(.25+wp.dmg*.45,0,1))){
+        this.broken[limb][sd]=true;if(limb==='arm')this.arm[sd]=0;else this.leg[sd]=0;snapped=limb;playCrack();
+        feedMsg(`<b>${this.name}</b> · ${part.label} <i>bone broken</i>`,false);}
+    }
     if(this.kin&&(part.kind==='thigh'||part.kind==='shin')){
       const s=part.side,fq=this.footXZ(s),k=(part.kind==='shin'?.32:.2)*Math.min(1.5,wp.stun+.3);
       const pl=p[PELV];addVel(pl,dir[0]*J*.3/pl.m,0,dir[2]*J*.3/pl.m);
@@ -1170,8 +1199,8 @@ class Rag{
     }
     this.mode='flee';this.goal=fleeGoal(this.p[PELV].x,this.p[PELV].z);
     if(this.hp<=0){this.die(part.kind==='head'?'headshot':'killed');return 'dead';}
-    if(this.state==='stand'||this.state==='getup'){if(this.stun>1.1||((part.kind==='thigh'||part.kind==='shin')&&this.minLeg()<.18)){this.fall();return 'knocked down';}}
-    return '';
+    if(this.state==='stand'||this.state==='getup'){if(this.stun>1.1||((part.kind==='thigh'||part.kind==='shin')&&this.minLeg()<.18)){this.fall();return snapped?'snapped':'knocked down';}}
+    return snapped?'snapped':'';
   }
   syncVisual(){
     const fr=this.fr;
@@ -1581,7 +1610,7 @@ function muzzleWorld(){
   vmCam.updateMatrixWorld(true);return g.g.localToWorld(g.muzzle.clone());
 }
 function reportHit(r,part,res){
-  if(res==='dead'||res==='corpse')return;let react='';const k=part.kind;
+  if(res==='dead'||res==='corpse'||res==='snapped')return;let react='';const k=part.kind;
   if(res)react=res;else if(r.state==='down')react='writhing';
   else if(k==='thigh'||k==='shin')react=r.minLeg()<.45?'leg buckling':'limping';
   else if(k==='uarm'||k==='farm')react='arm dangling';else if(k==='stomach')react='doubling over';
@@ -1603,6 +1632,8 @@ function tink(){if(!AC||!sound)return;const t=AC.currentTime,o=AC.createOscillat
 function playGun(id){if(id==='pistol'){noise(.22,6000,300,.5);thump(140,.12,.5);}else if(id==='smg'){noise(.12,5000,500,.32);thump(160,.07,.3);}
   else if(id==='revolver'){noise(.42,5000,150,.75);thump(95,.22,.85);}else if(id==='sniper'){noise(.9,9000,90,.85,.5);thump(70,.35,.95);}else if(id==='lmg'){noise(.14,6000,400,.42);thump(110,.09,.45);}
   else if(id==='shotgun'){noise(.45,4000,120,.75,.5);thump(90,.25,.8);}else if(id==='rifle'){noise(.18,7000,350,.45);thump(120,.1,.45);}}
+function playCrack(){if(!AC||!sound)return;const t=AC.currentTime;const s=AC.createBufferSource();s.buffer=noiseBuf;const f=AC.createBiquadFilter();f.type='bandpass';f.frequency.value=2400;f.Q.value=1.4;
+  const g=AC.createGain();g.gain.setValueAtTime(.7,t);g.gain.exponentialRampToValueAtTime(.001,t+.07);s.connect(f);f.connect(g);g.connect(AC.destination);s.start(t);s.stop(t+.08);thump(230,.05,.35);}
 function playHit(head){noise(.09,head?1800:900,120,.35,1.2);}
 
 /* ---------- input ---------- */
@@ -1764,11 +1795,13 @@ function statusOf(r){
   if(!r.alive)return 'DEAD';if(r.state==='held')return 'GRABBED';
   const cl=[...new Set(r.clutch.filter(Boolean).map(w=>PARTS.find(p=>p.id===w.part).label.replace(/^(left|right) /,'')))];
   const cs=cl.length?'CLUTCHING '+cl.join(' + ').toUpperCase():'';
-  if(r.state==='down')return r.stateT<.9?'FALLING':('DOWN'+(cs?' · '+cs:''));
+  const br=[];for(const l of ['leg','arm'])for(let sd=0;sd<2;sd++)if(r.broken[l][sd])br.push((sd?'R ':'L ')+l.toUpperCase());
+  const bs=br.length?' · BROKEN '+br.join(', '):'';
+  if(r.state==='down')return r.stateT<.9?'FALLING'+bs:((r.crawling?'CRAWLING':'DOWN')+bs+(cs?' · '+cs:''));
   if(r.state==='getup')return 'GETTING UP';
   const sp=Math.hypot(r.vDes[0],r.vDes[1]),out=[];
   if(r.t-r.stumbleT<.7)out.push('STUMBLING');else if(r.minLeg()<.7&&sp>.05)out.push('LIMPING');else if(r.mode==='flee'&&sp>.05)out.push('STAGGERING AWAY');
-  if(cs)out.push(cs);if(!out.length)out.push(sp>.05?'WALKING':'IDLE');return out.join(' · ');
+  if(cs)out.push(cs);if(!out.length)out.push(sp>.05?'WALKING':'IDLE');return out.join(' · ')+bs;
 }
 function drawOverlay(){
   const r=$('#stage').getBoundingClientRect(),W=r.width,H=r.height;octx.clearRect(0,0,W,H);
