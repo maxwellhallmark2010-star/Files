@@ -34,11 +34,28 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;
 .brand svg{width:34px;height:34px;flex:0 0 auto}
 .brand h1{margin:0;font:800 26px/1 var(--disp);letter-spacing:-.01em;white-space:nowrap}
 .brand span{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bar{display:flex;gap:6px}
+.bar{display:flex;gap:8px;align-items:center}
 .hb{height:42px;min-width:42px;padding:0 12px;border:0;border-radius:12px;background:var(--tray);box-shadow:0 2px 0 var(--tray-line);display:flex;align-items:center;justify-content:center;gap:6px;font-weight:600;font-size:13px}
 .hb svg{width:20px;height:20px}
 .hb:disabled{opacity:.35;cursor:default}
 .hb:not(:disabled):active{transform:translateY(1px)}
+.hist{display:flex;align-items:stretch;gap:2px;padding:4px;background:var(--tray);border-radius:15px;box-shadow:0 3px 0 var(--tray-line),0 8px 20px rgba(31,42,68,.08)}
+.hist .div{width:1px;margin:7px 2px;background:var(--tray-line)}
+.hbtn{position:relative;height:44px;padding:0 12px 0 7px;border:0;border-radius:11px;background:transparent;display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;color:var(--ink);transition:background .12s}
+.hbtn.redo{padding:0 12px 0 7px}
+.hbtn .ic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--chip);color:var(--ink-soft);transition:background .15s,color .15s,box-shadow .15s}
+.hbtn .ic svg{width:19px;height:19px}
+.hbtn:not(:disabled) .ic{background:var(--pop);color:#fff;box-shadow:0 2px 0 var(--pop-deep)}
+.hbtn:not(:disabled):hover{background:var(--chip)}
+.hbtn:not(:disabled):active .ic{transform:translateY(2px);box-shadow:0 0 0 var(--pop-deep)}
+.hbtn:disabled{cursor:default;color:var(--ink-soft)}
+.hbtn:disabled .t{opacity:.55}
+.hbtn .n{min-width:22px;height:20px;padding:0 6px;border-radius:999px;background:var(--ink);color:var(--tray);font-size:11px;font-weight:600;display:grid;place-items:center;font-variant-numeric:tabular-nums;box-sizing:border-box}
+.hbtn:disabled .n{display:none}
+.hbtn.bump .ic{animation:spinL .28s ease-out}
+.hbtn.redo.bump .ic{animation-name:spinR}
+@keyframes spinL{40%{transform:scale(1.14) rotate(-14deg)}}
+@keyframes spinR{40%{transform:scale(1.14) rotate(14deg)}}
 
 /* stage */
 #stage{position:relative;min-height:0;display:grid;place-items:center;padding-block:6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -95,8 +112,8 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;
 .page canvas{width:100%;aspect-ratio:4/3;background:#fff;border-radius:10px;display:block}
 .page:hover{box-shadow:inset 0 0 0 2px var(--ink)}
 .page.blank canvas{background:#fff repeating-linear-gradient(0deg,transparent 0 19px,rgba(31,42,68,.05) 19px 20px)}
-@media (max-width:620px){.pages{grid-template-columns:repeat(2,1fr)}.brand span{display:none}.hb .t{display:none}.brand h1{font-size:22px}}
-@media (prefers-reduced-motion:reduce){#newBtn,.sw{transition:none}}
+@media (max-width:620px){.pages{grid-template-columns:repeat(2,1fr)}.brand span{display:none}.hb .t,.hbtn .t{display:none}.hbtn{padding:0 5px!important}.hbtn .n{position:absolute;top:1px;right:0;min-width:18px;height:17px;padding:0 4px;font-size:10px;box-shadow:0 0 0 2px var(--tray)}.brand h1{font-size:22px}}
+@media (prefers-reduced-motion:reduce){#newBtn,.sw,.hbtn,.hbtn .ic{transition:none}.hbtn.bump .ic{animation:none}}
 </style>
 
 <header>
@@ -105,8 +122,17 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;
     <h1>Doodle Den</h1><span id="pageName">Flower garden</span>
   </div>
   <div class="bar">
-    <button class="hb" id="undoBtn" aria-label="Undo" title="Undo (Ctrl+Z)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 010 12h-2" transform="translate(0 -6)"/></svg><span class="t">Undo</span></button>
-    <button class="hb" id="redoBtn" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7l5 5-5 5"/><path d="M20 12H10a6 6 0 000 12h2" transform="translate(0 -6)"/></svg><span class="t">Redo</span></button>
+    <div class="hist" role="group" aria-label="History">
+      <button class="hbtn" id="undoBtn" aria-label="Undo" title="Undo (Ctrl+Z, hold to repeat)" disabled>
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg></span>
+        <span class="t">Undo</span><span class="n" id="undoN" aria-hidden="true">0</span>
+      </button>
+      <span class="div" aria-hidden="true"></span>
+      <button class="hbtn redo" id="redoBtn" aria-label="Redo" title="Redo (Ctrl+Shift+Z, hold to repeat)" disabled>
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 000 11H13"/></svg></span>
+        <span class="t">Redo</span><span class="n" id="redoN" aria-hidden="true">0</span>
+      </button>
+    </div>
     <button class="hb" id="clearBtn" aria-label="Clear my coloring" title="Clear my coloring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg><span class="t">Clear</span></button>
   </div>
 </header>
@@ -361,21 +387,35 @@ function darker(h){const c=hexToRgb(h);return 'rgb('+c.map(function(v){return Ma
 /* ---------- history: each step stores only the rectangle it changed ---------- */
 const HIST=[],REDO=[];let histBytes=0;const MAX_BYTES=80e6;
 function beginChange(){bctx.clearRect(0,0,W,H);bctx.drawImage(paint,0,0);}
-function commitChange(x0,y0,x1,y1){
+function commitChange(x0,y0,x1,y1,label){
   const x=clamp(Math.floor(x0),0,W),y=clamp(Math.floor(y0),0,H),w=clamp(Math.ceil(x1),0,W)-x,h=clamp(Math.ceil(y1),0,H)-y;
   if(w<=0||h<=0)return;
-  const e={x:x,y:y,before:bctx.getImageData(x,y,w,h),after:pctx.getImageData(x,y,w,h)};e.bytes=w*h*8;
+  const e={x:x,y:y,before:bctx.getImageData(x,y,w,h),after:pctx.getImageData(x,y,w,h),label:label||(TOOLS.find(function(t){return t.id===S.tool;})||{n:'Change'}).n};e.bytes=w*h*8;
   HIST.push(e);histBytes+=e.bytes;REDO.length=0;
   while(histBytes>MAX_BYTES&&HIST.length>1){histBytes-=HIST.shift().bytes;}
   syncHistory();scheduleSave();
 }
-function undo(){const e=HIST.pop();if(!e)return;histBytes-=e.bytes;pctx.putImageData(e.before,e.x,e.y);REDO.push(e);syncHistory();scheduleSave();}
-function redo(){const e=REDO.pop();if(!e)return;pctx.putImageData(e.after,e.x,e.y);HIST.push(e);histBytes+=e.bytes;syncHistory();scheduleSave();}
-function syncHistory(){$('undoBtn').disabled=!HIST.length;$('redoBtn').disabled=!REDO.length;}
-$('undoBtn').addEventListener('click',undo);$('redoBtn').addEventListener('click',redo);
+function undo(){const e=HIST.pop();if(!e)return false;histBytes-=e.bytes;pctx.putImageData(e.before,e.x,e.y);REDO.push(e);syncHistory();scheduleSave();feedback('undoBtn','Undid '+e.label);return true;}
+function redo(){const e=REDO.pop();if(!e)return false;pctx.putImageData(e.after,e.x,e.y);HIST.push(e);histBytes+=e.bytes;syncHistory();scheduleSave();feedback('redoBtn','Redid '+e.label);return true;}
+function syncHistory(){
+  const u=$('undoBtn'),r=$('redoBtn'),nu=HIST.length,nr=REDO.length;
+  u.disabled=!nu;r.disabled=!nr;$('undoN').textContent=nu>99?'99+':nu;$('redoN').textContent=nr>99?'99+':nr;
+  u.setAttribute('aria-label',nu?'Undo '+HIST[nu-1].label+' ('+nu+(nu===1?' step':' steps')+' available)':'Undo (nothing to undo)');
+  r.setAttribute('aria-label',nr?'Redo '+REDO[nr-1].label+' ('+nr+(nr===1?' step':' steps')+' available)':'Redo (nothing to redo)');
+}
+function feedback(id,msg){const b=$(id);b.classList.remove('bump');void b.offsetWidth;b.classList.add('bump');toast(msg);}
+/* press once to step; hold to keep stepping */
+[['undoBtn',undo],['redoBtn',redo]].forEach(function(pair){
+  const b=$(pair[0]),act=pair[1];let hold=0,rep=0;
+  const stop=function(){clearTimeout(hold);clearInterval(rep);hold=rep=0;};
+  b.addEventListener('pointerdown',function(e){if(b.disabled||e.button>0)return;e.preventDefault();act();
+    hold=setTimeout(function(){rep=setInterval(function(){if(!act())stop();},110);},450);});
+  ['pointerup','pointerleave','pointercancel'].forEach(function(ev){b.addEventListener(ev,stop);});
+  b.addEventListener('click',function(e){if(e.detail===0)act();});
+});
 $('clearBtn').addEventListener('click',function(){
   if(!hasPaint()){toast('Nothing to clear yet');return;}
-  beginChange();pctx.clearRect(0,0,W,H);commitChange(0,0,W,H);toast('Cleared. Tap Undo to bring it back.');
+  beginChange();pctx.clearRect(0,0,W,H);commitChange(0,0,W,H,'Clear');toast('Cleared. Tap Undo to bring it back.');
 });
 function hasPaint(){const d=pctx.getImageData(0,0,W,H).data;for(let i=3;i<d.length;i+=64)if(d[i])return true;return false;}
 
@@ -416,10 +456,10 @@ board.addEventListener('pointerdown',function(e){
   if(drawing||e.button>0)return;
   try{board.setPointerCapture(e.pointerId);}catch(err){}
   const pt=toCanvas(e),t=S.tool;
-  if(t==='fill'){beginChange();const box=floodFill(Math.floor(pt.x),Math.floor(pt.y),S.color);if(box)commitChange(box[0],box[1],box[2],box[3]);else toast('Tap inside a shape to fill it');return;}
+  if(t==='fill'){beginChange();const box=floodFill(Math.floor(pt.x),Math.floor(pt.y),S.color);if(box)commitChange(box[0],box[1],box[2],box[3],'Fill');else toast('Tap inside a shape to fill it');return;}
   if(t==='picker'){pickColor(pt);return;}
   if(t==='stamp'){beginChange();const r=S.size*1.6+8;pctx.save();pctx.fillStyle=S.color;pctx.strokeStyle=darker(S.color);pctx.lineWidth=Math.max(2,r*0.07);pctx.lineJoin='round';
-    stampPath(pctx,S.stamp==='smile'?'circle':S.stamp,pt.x,pt.y,r);pctx.fill();pctx.stroke();if(S.stamp==='smile')stampFace(pctx,pt.x,pt.y,r);pctx.restore();commitChange(pt.x-r-6,pt.y-r-6,pt.x+r+6,pt.y+r+6);return;}
+    stampPath(pctx,S.stamp==='smile'?'circle':S.stamp,pt.x,pt.y,r);pctx.fill();pctx.stroke();if(S.stamp==='smile')stampFace(pctx,pt.x,pt.y,r);pctx.restore();commitChange(pt.x-r-6,pt.y-r-6,pt.x+r+6,pt.y+r+6,S.stamp[0].toUpperCase()+S.stamp.slice(1)+' stamp');return;}
   beginChange();
   drawing={id:e.pointerId,last:pt,box:[pt.x,pt.y,pt.x,pt.y],hue:Math.random()*360};
   if(t==='spray'){spray(pt);drawing.timer=setInterval(function(){if(drawing)spray(drawing.last);},40);}
