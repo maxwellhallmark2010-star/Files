@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Deep Sea Angler</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b1d2a;overflow:hidden;font-family:system-ui,sans-serif}
+  canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const W = 800, H = 600, SURFACE = 120, GAME_TIME = 60;
+function resize() {
+  const s = Math.min(innerWidth / W, innerHeight / H);
+  cv.width = W; cv.height = H;
+  cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px';
+  cv.style.margin = ((innerHeight - H * s) / 2) + 'px ' + ((innerWidth - W * s) / 2) + 'px';
+}
+addEventListener('resize', resize); resize();
+
+const SPECIES = [
+  { name: 'Minnow',  color: '#ffd166', size: 14, speed: 90,  pts: 10, minY: 150, maxY: 280 },
+  { name: 'Bass',    color: '#6bd49a', size: 20, speed: 70,  pts: 25, minY: 260, maxY: 420 },
+  { name: 'Tuna',    color: '#6aa9ff', size: 28, speed: 110, pts: 50, minY: 380, maxY: 520 },
+  { name: 'Golden',  color: '#ffb000', size: 22, speed: 150, pts: 120, minY: 440, maxY: 570 },
+];
+
+let state = 'title', score = 0, best = +(localStorage.getItem('anglerBest') || 0), timeLeft = GAME_TIME;
+let fish, jellies, bubbles, popups, hook, mouseX = W / 2, t = 0, msg = '';
+
+function rnd(a, b) { return a + Math.random() * (b - a); }
+
+function spawnFish() {
+  const r = Math.random();
+  const sp = SPECIES[r < .4 ? 0 : r < .7 ? 1 : r < .93 ? 2 : 3];
+  const dir = Math.random() < .5 ? 1 : -1;
+  return { sp, x: dir > 0 ? -40 : W + 40, y: rnd(sp.minY, sp.maxY), dir, vy: rnd(0, Math.PI * 2), hooked: false };
+}
+function spawnJelly() { return { x: rnd(60, W - 60), y: rnd(220, 560), ph: rnd(0, 6), r: 18 }; }
+
+function reset() {
+  score = 0; timeLeft = GAME_TIME; fish = []; popups = []; msg = '';
+  jellies = Array.from({ length: 4 }, spawnJelly);
+  bubbles = Array.from({ length: 30 }, () => ({ x: rnd(0, W), y: rnd(SURFACE, H), r: rnd(1, 4), s: rnd(10, 30) }));
+  for (let i = 0; i < 8; i++) { const f = spawnFish(); f.x = rnd(0, W); fish.push(f); }
+  hook = { x: W / 2, y: SURFACE - 10, mode: 'idle', caught: [], flash: 0 };
+}
+reset();
+
+function press() {
+  if (state === 'title' || state === 'over') { reset(); state = 'play'; return; }
+  if (hook.mode === 'idle') { hook.mode = 'down'; hook.x = mouseX; }
+  else if (hook.mode === 'down') hook.mode = 'up';
+}
+function move(e) {
+  const r = cv.getBoundingClientRect();
+  mouseX = Math.max(20, Math.min(W - 20, (e.clientX - r.left) / r.width * W));
+}
+cv.addEventListener('pointermove', move);
+cv.addEventListener('pointerdown', e => { move(e); press(); });
+addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); press(); } });
+
+function addPopup(x, y, text, color) { popups.push({ x, y, text, color, life: 1.2 }); }
+
+function update(dt) {
+  t += dt;
+  bubbles.forEach(b => { b.y -= b.s * dt; if (b.y < SURFACE) { b.y = H; b.x = rnd(0, W); } });
+  popups.forEach(p => { p.life -= dt; p.y -= 30 * dt; });
+  popups = popups.filter(p => p.life > 0);
+  if (state !== 'play') return;
+
+  timeLeft -= dt;
+  if (timeLeft <= 0) {
+    timeLeft = 0; state = 'over';
+    if (score > best) { best = score; try { localStorage.setItem('anglerBest', best); } catch (e) {} }
+    return;
+  }
+
+  while (fish.length < 9) fish.push(spawnFish());
+  fish.forEach(f => {
+    if (f.hooked) return;
+    f.x += f.dir * f.sp.speed * dt;
+    f.vy += dt * 2;
+    f.y += Math.sin(f.vy) * 12 * dt;
+  });
+  fish = fish.filter(f => f.hooked || (f.x > -80 && f.x < W + 80));
+  jellies.forEach(j => { j.ph += dt; j.y += Math.sin(j.ph) * 14 * dt; j.x += Math.cos(j.ph * .6) * 18 * dt; });
+
+  // hook
+  const h = hook;
+  if (h.flash > 0) h.flash -= dt;
+  if (h.mode === 'idle') { h.x += (mouseX - h.x) * Math.min(1, dt * 8); h.y = SURFACE - 10; }
+  else {
+    h.x += (mouseX - h.x) * Math.min(1, dt * 5);
+    if (h.mode === 'down') {
+      h.y += 230 * dt;
+      if (h.y > H - 20) h.mode = 'up';
+    } else {
+      h.y -= (260 - h.caught.length * 45) * dt;
+      if (h.y <= SURFACE - 10) {
+        h.y = SURFACE - 10; h.mode = 'idle';
+        let gain = 0;
+        h.caught.forEach(f => { gain += f.sp.pts; });
+        if (h.caught.length > 1) gain = Math.round(gain * (1 + 0.25 * (h.caught.length - 1)));
+        if (gain) { score += gain; addPopup(h.x, SURFACE - 20, '+' + gain + (h.caught.length > 1 ? ' combo!' : ''), '#ffe27a'); }
+        fish = fish.filter(f => !h.caught.includes(f));
+        h.caught = [];
+      }
+    }
+    h.caught.forEach((f, i) => { f.x = h.x + (i % 2 ? 14 : -14); f.y = h.y + 14 + i * 16; });
+    // catch
+    if (h.mode === 'down' && h.caught.length < 3) {
+      for (const f of fish) {
+        if (!f.hooked && Math.hypot(f.x - h.x, f.y - h.y) < f.sp.size + 6) {
+          f.hooked = true; h.caught.push(f);
+          if (h.caught.length >= 3) h.mode = 'up';
+          break;
+        }
+      }
+    }
+    // jellyfish zap
+    if (h.mode !== 'idle') {
+      for (const j of jellies) {
+        if (Math.hypot(j.x - h.x, j.y - h.y) < j.r + 8) {
+          if (h.caught.length) addPopup(h.x, h.y, 'Zapped! Fish lost', '#ff6b9a');
+          h.caught.forEach(f => { f.hooked = false; f.dir *= -1; });
+          h.caught = []; h.mode = 'up'; h.flash = .4;
+          j.x = rnd(60, W - 60); j.y = rnd(260, 560);
+          break;
+        }
+      }
+    }
+  }
+}
+
+function drawFish(f) {
+  const s = f.sp.size, d = f.hooked ? 1 : f.dir;
+  ctx.save(); ctx.translate(f.x, f.y);
+  if (f.hooked) ctx.rotate(Math.PI / 2 * -1);
+  ctx.scale(d, 1);
+  ctx.fillStyle = f.sp.color;
+  ctx.beginPath(); ctx.ellipse(0, 0, s, s * .55, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-s * .8, 0); ctx.lineTo(-s * 1.5, -s * .5); ctx.lineTo(-s * 1.5, s * .5); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(s * .5, -s * .12, s * .17, 0, 7); ctx.fill();
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(s * .55, -s * .12, s * .08, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+function draw() {
+  // sky + water
+  let g = ctx.createLinearGradient(0, 0, 0, SURFACE);
+  g.addColorStop(0, '#ffb86b'); g.addColorStop(1, '#ffe3b0');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, SURFACE);
+  g = ctx.createLinearGradient(0, SURFACE, 0, H);
+  g.addColorStop(0, '#2a8fbd'); g.addColorStop(1, '#06182c');
+  ctx.fillStyle = g; ctx.fillRect(0, SURFACE, W, H - SURFACE);
+  ctx.fillStyle = '#ffd27a'; ctx.beginPath(); ctx.arc(680, 70, 28, 0, 7); ctx.fill();
+
+  // waves
+  ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2; ctx.beginPath();
+  for (let x = 0; x <= W; x += 8) ctx.lineTo(x, SURFACE + Math.sin(x * .05 + t * 2) * 3);
+  ctx.stroke();
+
+  bubbles.forEach(b => { ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill(); });
+
+  // seabed
+  ctx.fillStyle = '#0a2a30';
+  ctx.beginPath(); ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 20) ctx.lineTo(x, H - 14 - Math.sin(x * .03) * 8);
+  ctx.lineTo(W, H); ctx.fill();
+
+  jellies.forEach(j => {
+    ctx.fillStyle = 'rgba(255,120,200,.75)';
+    ctx.beginPath(); ctx.arc(j.x, j.y, j.r, Math.PI, 0); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,150,210,.7)'; ctx.lineWidth = 2;
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath(); ctx.moveTo(j.x + i * 7, j.y);
+      ctx.quadraticCurveTo(j.x + i * 7 + Math.sin(t * 3 + i) * 5, j.y + 14, j.x + i * 7, j.y + 26);
+      ctx.stroke();
+    }
+  });
+
+  fish.forEach(drawFish);
+
+  // boat
+  const bx = hook.x;
+  ctx.fillStyle = '#7a3e1d';
+  ctx.beginPath(); ctx.moveTo(bx - 60, SURFACE - 22); ctx.lineTo(bx + 60, SURFACE - 22);
+  ctx.lineTo(bx + 42, SURFACE + 2); ctx.lineTo(bx - 42, SURFACE + 2); ctx.fill();
+  ctx.strokeStyle = '#3b2412'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(bx + 10, SURFACE - 22); ctx.lineTo(bx + 30, SURFACE - 62); ctx.stroke();
+  // line
+  ctx.strokeStyle = hook.flash > 0 ? '#ff5577' : '#f4f4f4'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(bx + 30, SURFACE - 62); ctx.lineTo(hook.x, hook.y); ctx.stroke();
+  ctx.strokeStyle = '#ddd'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(hook.x - 5, hook.y + 6, 6, -Math.PI / 2, Math.PI * .8); ctx.stroke();
+  hook.caught.forEach(drawFish);
+
+  popups.forEach(p => {
+    ctx.globalAlpha = Math.min(1, p.life); ctx.fillStyle = p.color;
+    ctx.font = 'bold 20px system-ui'; ctx.textAlign = 'center'; ctx.fillText(p.text, p.x, p.y);
+  });
+  ctx.globalAlpha = 1;
+
+  // HUD
+  ctx.textAlign = 'left'; ctx.fillStyle = '#10222e'; ctx.font = 'bold 24px system-ui';
+  ctx.fillText('Score ' + score, 16, 36);
+  ctx.font = '16px system-ui'; ctx.fillText('Best ' + best, 16, 60);
+  ctx.textAlign = 'right'; ctx.font = 'bold 24px system-ui';
+  ctx.fillStyle = timeLeft < 10 ? '#c0102f' : '#10222e';
+  ctx.fillText(Math.ceil(timeLeft) + 's', W - 16, 36);
+  if (state === 'play') {
+    ctx.textAlign = 'center'; ctx.font = '14px system-ui'; ctx.fillStyle = '#10222e';
+    ctx.fillText(hook.mode === 'idle' ? 'Move to aim · click / Space to cast' : hook.mode === 'down' ? 'Steer with mouse · click to reel in early' : 'Reeling in…', W / 2, 24);
+  }
+
+  if (state !== 'play') {
+    ctx.fillStyle = 'rgba(4,14,26,.72)'; ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+    ctx.font = 'bold 48px system-ui';
+    ctx.fillText(state === 'title' ? 'Deep Sea Angler' : "Time's up!", W / 2, 220);
+    ctx.font = '22px system-ui';
+    if (state === 'over') {
+      ctx.fillText('Score: ' + score + (score >= best && score > 0 ? '  — new best!' : '   Best: ' + best), W / 2, 270);
+    } else {
+      ctx.fillText('Catch as many fish as you can in 60 seconds.', W / 2, 270);
+    }
+    ctx.font = '16px system-ui'; ctx.fillStyle = '#bcd';
+    ctx.fillText('Deeper fish are worth more · catch up to 3 per cast for a combo bonus', W / 2, 310);
+    ctx.fillStyle = '#ff9ecb'; ctx.fillText('Avoid the jellyfish — they zap your catch away!', W / 2, 335);
+    SPECIES.forEach((sp, i) => {
+      const x = 190 + i * 140;
+      drawFish({ sp, x, y: 400, dir: 1, hooked: false });
+      ctx.fillStyle = '#fff'; ctx.font = '14px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText(sp.name + ' · ' + sp.pts, x, 440);
+    });
+    ctx.font = 'bold 22px system-ui'; ctx.fillStyle = '#ffe27a';
+    ctx.fillText(state === 'title' ? 'Click or press Space to start' : 'Click or press Space to play again', W / 2, 510);
+  }
+}
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  update(dt); draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
