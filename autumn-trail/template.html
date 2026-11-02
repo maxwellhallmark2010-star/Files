@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Autumn Trail</title>
+<style>
+  :root{--ink:#fff4e0;--ember:#e8821e;--red:#d2111a;--shade:rgba(30,14,6,.72)}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#2a1a0e;font-family:Georgia,'Iowan Old Style',serif;color:var(--ink);user-select:none}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  #overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(60,26,8,.55),rgba(20,8,2,.88));z-index:10;padding:16px}
+  #overlay.hidden{display:none}
+  .card{max-width:560px;width:100%;padding:28px 30px;border:1px solid rgba(255,214,160,.25);border-radius:14px;background:rgba(40,18,8,.7);backdrop-filter:blur(6px);text-align:center}
+  h1{margin:0 0 4px;font-size:42px;letter-spacing:.04em;font-weight:700;color:#ffd9a0}
+  .sub{margin:0 0 18px;opacity:.8;font-style:italic}
+  .keys{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;text-align:left;font-size:15px;margin:0 auto 20px;max-width:420px}
+  .keys b{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#ffcf8a;white-space:nowrap}
+  button#go{font:inherit;font-size:20px;padding:12px 34px;border-radius:999px;border:0;background:linear-gradient(#ee8a22,#c8541a);color:#fff;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.4)}
+  button#go:disabled{opacity:.55;cursor:wait}
+  button#go:hover:not(:disabled){filter:brightness(1.1)}
+  #loadtxt{margin-top:12px;font-size:13px;opacity:.7}
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:5}
+  #cross{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:rgba(255,244,224,.55)}
+  #speedwrap{position:absolute;left:24px;bottom:22px;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+  #speed{font-size:54px;font-weight:700;line-height:1}
+  #unit{font-size:16px;opacity:.8;margin-left:4px}
+  #info{font-size:14px;opacity:.9;margin-top:4px}
+  #stamwrap{width:150px;height:6px;border-radius:3px;background:rgba(0,0,0,.35);margin-top:8px;overflow:hidden;transition:opacity .3s}
+  #stam{height:100%;background:#f0b02a;border-radius:3px}
+  #stam.low{background:#c8341c}
+  #prompt{position:absolute;left:50%;top:62%;transform:translateX(-50%);padding:8px 18px;border-radius:999px;background:var(--shade);font-size:19px;opacity:0;transition:opacity .2s}
+  #msg{position:absolute;left:50%;top:14%;transform:translateX(-50%);font-size:20px;font-style:italic;text-align:center;text-shadow:0 2px 10px rgba(0,0,0,.7);opacity:0;transition:opacity .6s;max-width:80vw}
+  #hint{position:absolute;right:20px;bottom:18px;font-size:12px;opacity:.55;text-align:right;text-shadow:0 1px 4px rgba(0,0,0,.7);max-width:46vw;transition:opacity .4s}
+  #fade{position:fixed;inset:0;background:#120604;opacity:0;transition:opacity 1.1s;z-index:6;pointer-events:none}
+  #fade.on{opacity:1}
+  #dead{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:7;opacity:0;transition:opacity .9s .5s;pointer-events:none;text-align:center;font-size:30px;white-space:pre-line;text-shadow:0 2px 14px #000}
+  #dead.on{opacity:1}
+  @media (max-width:640px){#speed{font-size:40px}#hint{display:none}h1{font-size:34px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div id="cross"></div>
+  <div id="speedwrap"><span id="speed">0</span><span id="unit">mph</span><div id="info"></div><div id="stamwrap"><div id="stam"></div></div></div>
+  <div id="prompt"></div><div id="msg"></div><div id="hint"></div>
+</div>
+<div id="fade"></div><div id="dead"><span id="deadtxt"></span></div>
+<div id="overlay">
+  <div class="card">
+    <h1>Autumn Trail</h1>
+    <p class="sub">A quiet ridge trail. Somebody left a red bicycle by the path.</p>
+    <div class="keys">
+      <b>W A S D</b><span>walk · mouse to look</span>
+      <b>Shift / Space</b><span>run / jump</span>
+      <b>E</b><span>take the bicycle, or get off it</span>
+      <b>W · S</b><span>on the bike: pedal · brake</span>
+      <b>A · D</b><span>on the bike: steer (lean into turns)</span>
+      <b>Shift · Space · B</b><span>on the bike: sprint · hop · bell</span>
+      <b>R · M</b><span>back to trailhead · mute</span>
+    </div>
+    <button id="go" disabled>Loading…</button>
+    <div id="loadtxt">Raking the leaves…</div>
+  </div>
+</div>
+<script>/*__THREE__*/</script>
+<script>/*__GAME__*/</script>
+</body>
+</html>
