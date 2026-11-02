@@ -42,6 +42,14 @@ function trailH(z) {
 function edgeZ(x) { return EDGE_Z + 14 * noise2(x * 0.02, 5.5) + 4 * noise2(x * 0.11, 2.2); }
 const ZE = edgeZ(trailX(EDGE_Z));         // where the trail runs out of ground
 
+const RAMP_START = ZE + 42, RAMP_LIP = ZE + 26, RAMP_H = 2.8;
+function rampH(x, z, d) {                    // kicker on the trail, aimed at the cliff
+  if (z > RAMP_START || z < RAMP_LIP - 2.5) return 0;
+  const u = clamp((RAMP_START - z) / (RAMP_START - RAMP_LIP), 0, 1);
+  const side = 1 - smooth(2.0, 3.4, d);
+  const prof = z >= RAMP_LIP ? RAMP_H * Math.pow(u, 1.25) : RAMP_H * (1 - (RAMP_LIP - z) / 2.5);
+  return Math.max(0, prof) * side;
+}
 function terrainH(x, z) {
   const d = Math.abs(x - trailX(z));
   const th = trailH(z);
@@ -55,7 +63,7 @@ function terrainH(x, z) {
   if (mf > 0) off += mf * ridged(x * 0.0045 + 3.3, z * 0.0045 - 7.1, 5) * 70 * smooth(20, 200, d);
   const far = smooth(EDGE_Z - 60, EDGE_Z - 520, z);        // the peaks across the chasm
   if (far > 0) off += far * (ridged(x * 0.0035 - 5, z * 0.0035 + 2, 5) * 140 + 35);
-  let h = th + w * off;
+  let h = th + w * off + rampH(x, z, d);
   const t = clamp((edgeZ(x) - z) / 2.5, 0, 1);             // the plunge: exactly 100 ft
   h -= DROP * t * t * (3 - 2 * t);
   return h;
@@ -171,7 +179,7 @@ function buildTerrain() {
   // palette ramp for leaf litter
   const ramp = [[0, 0x6a4426], [0.28, 0x9c4f1d], [0.5, 0xc57a22], [0.68, 0xd9a03a], [0.84, 0xa8361c], [1, 0x7e2c18]].map(s => [s[0], new THREE.Color(s[1])]);
   const cA = new THREE.Color(), cB = new THREE.Color(), tmp = new THREE.Color();
-  const brownish = new THREE.Color(0x7a5434), rock = new THREE.Color(0x7b6c5e), rock2 = new THREE.Color(0x8d6a50), snow = new THREE.Color(0xf1ece4), dirt = new THREE.Color(0x8a6a48), dry = new THREE.Color(0x9a8a3a);
+  const wood = new THREE.Color(0xd9ac6c), plank = new THREE.Color(), brownish = new THREE.Color(0x7a5434), rock = new THREE.Color(0x7b6c5e), rock2 = new THREE.Color(0x8d6a50), snow = new THREE.Color(0xf1ece4), dirt = new THREE.Color(0x8a6a48), dry = new THREE.Color(0x9a8a3a);
   const strata = [new THREE.Color(0x7a5a48), new THREE.Color(0x92715a), new THREE.Color(0x66554c), new THREE.Color(0x9c8672)];
   for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
     const k = j * NX + i, x = XMIN + i * TS, z = ZMAX - j * TS, h = HM[k], ny = nor[k * 3 + 1];
@@ -184,6 +192,7 @@ function buildTerrain() {
     cA.lerp(dry, dr * 0.55); cA.lerp(brownish, 0.28).multiplyScalar(0.86);
     // trail
     if (z > ZE) { const tt = 1 - smooth(1.4, 3.0, d); if (tt > 0) { tmp.copy(dirt).multiplyScalar(0.92 + noise2(x * 0.4, z * 0.4) * 0.12); cA.lerp(tmp, tt); } }
+    if (z < RAMP_START + 1 && z > RAMP_LIP - 3) { const rt = (1 - smooth(2.0, 3.4, d)); if (rt > 0) cA.lerp(plank.copy(wood).multiplyScalar(0.85 + 0.25 * Math.sin(z * 2.2)), Math.min(1, rt * 1.2)); }
     // lookout slab
     if (z < ZE + 22 && z > ZE - 3 && d < 12) cA.lerp(rock2, smooth(12, 4, d) * smooth(ZE + 22, ZE + 4, z) * 0.7);
     // rock on steep ground
@@ -489,11 +498,13 @@ const gripL = new V3(-0.33, 0, 0), gripR = new V3(0.33, 0, 0);
   for (const sx of [-1, 1]) addTube(fork, 0.013, paintRed, [sx * 0.045, 0.0, 0.0], [sx * 0.045, F_REL.y, F_REL.z]);
   addTube(fork, 0.012, paintRed, [-0.045, 0, 0], [0.045, 0, 0]);
   const S1 = new V3().subVectors(HT, HB).add(new V3(0, 0.06, 0.018)), C = S1.clone().add(new V3(0, 0, -0.075));
-  addTube(fork, 0.012, chrome, new V3().subVectors(HT, HB), S1); addTube(fork, 0.014, chrome, S1, C);
+  addTube(fork, 0.016, chrome, new V3(0, 0.02, 0.006), S1); addTube(fork, 0.016, chrome, S1, C);
+  const joint = (p, r, m) => { const j = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), m || chrome); j.position.copy(p); j.castShadow = true; fork.add(j); };
+  joint(S1, 0.019); const clamp2 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.05), darkMetal); clamp2.position.copy(C); fork.add(clamp2);
   const L = C.clone().add(new V3(-0.29, 0.0, 0.1)), R = C.clone().add(new V3(0.29, 0.0, 0.1));
-  addTube(fork, 0.0115, chrome, C, L); addTube(fork, 0.0115, chrome, C, R);
+  addTube(fork, 0.0135, chrome, C, L); addTube(fork, 0.0135, chrome, C, R); joint(L, 0.0155); joint(R, 0.0155); joint(C, 0.0155);
   const gl = L.clone().add(new V3(-0.1, 0, 0.012)), gr = R.clone().add(new V3(0.1, 0, 0.012));
-  addTube(fork, 0.017, rubber, L, gl); addTube(fork, 0.017, rubber, R, gr);
+  addTube(fork, 0.019, rubber, L.clone().add(new V3(0.02, 0, -0.004)), gl); addTube(fork, 0.019, rubber, R.clone().add(new V3(-0.02, 0, -0.004)), gr);
   gripL.copy(L).lerp(gl, 0.5); gripR.copy(R).lerp(gr, 0.5);
   const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.05, 10), darkMetal); lamp.rotation.x = Math.PI / 2; lamp.position.set(0, 0.255, -0.075); fork.add(lamp); addTube(fork, 0.006, darkMetal, C, new V3(0, 0.235, -0.075));
   const lens = new THREE.Mesh(new THREE.CircleGeometry(0.026, 10), new THREE.MeshBasicMaterial({ color: 0xfff1c0 })); lens.position.set(0, 0.255, -0.1015); lens.rotation.y = Math.PI; fork.add(lens);
@@ -693,18 +704,18 @@ const gh2 = { hr: 0, hf: 0 };
 function stepBike(dt) {
   const m = 85, WB = 1.08;
   groundAt(B, gh2);
-  const onTr = isTrail(B.pos.x, B.pos.z), mu = onTr ? 0.85 : 0.6, crr = onTr ? 0.018 : 0.055;
+  const onTr = isTrail(B.pos.x, B.pos.z), mu = onTr ? 0.85 : 0.6, crr = onTr ? 0.012 : 0.04;
   const brake = !!(K.KeyS || K.ArrowDown), pedal = !!(K.KeyW || K.ArrowUp);
   const sprintKey = !!(K.ShiftLeft || K.ShiftRight);
   let sprint = false;
-  if (pedal && sprintKey && !B.winded && B.stamina > 0) { sprint = true; B.stamina -= 0.16 * dt; if (B.stamina <= 0) { B.stamina = 0; B.winded = true; } }
+  if (pedal && sprintKey && !B.winded && B.stamina > 0) { sprint = true; B.stamina -= 0.11 * dt; if (B.stamina <= 0) { B.stamina = 0; B.winded = true; } }
   else { B.stamina = Math.min(1, B.stamina + (pedal ? 0.05 : 0.12) * dt); if (B.winded && B.stamina > 0.3) B.winded = false; }
   B.hopCd -= dt;
   if (B.onGround) {
     const grad = (gh2.hf - gh2.hr) / WB, cosT = 1 / Math.sqrt(1 + grad * grad), sinT = grad * cosT;
-    const power = pedal ? (sprint ? 820 : 340) : 0;
-    const F = power > 0 ? Math.min(power / Math.max(B.v, 1.3), 235) : 0;
-    const drag = 0.5 * 1.2 * 0.55 * B.v * B.v;
+    const power = pedal ? (sprint ? 1500 : 560) : 0;
+    const F = power > 0 ? Math.min(power / Math.max(B.v, 1.3), 420) : 0;
+    const drag = 0.5 * 1.2 * 0.4 * B.v * B.v;
     const net = F - drag - m * G * sinT;
     const resist = crr * m * G * cosT * (B.v > 0.05 ? 1 : 0.0) + (brake ? 560 * Math.min(1, B.v / 0.5 + 0.2) : 0);
     const a = (net - resist) / m;
@@ -713,7 +724,7 @@ function stepBike(dt) {
     else if (B.v <= 0.02 && a <= 0) B.v = 0;
     else if (B.v <= 0.02 && net > crr * m * G * cosT) B.v += a * dt + 0.01;
     else B.v += a * dt;
-    if (B.v > 32) B.v = 32;
+    if (B.v > 42) B.v = 42;
     // steering
     const maxS = lerp(0.62, 0.08, smooth(0, 15, B.v));
     const si = (K.KeyD || K.ArrowRight ? 1 : 0) - (K.KeyA || K.ArrowLeft ? 1 : 0);
@@ -726,7 +737,7 @@ function stepBike(dt) {
     const leanT = Math.atan(B.v * -yawRate / G) + (pedal && B.v > 1 ? Math.sin(B.phase) * 0.012 : 0);
     B.lean += (leanT - B.lean) * Math.min(1, 9 * dt);
     // pedalling / cadence
-    if (pedal) { B.cadence = clamp(32 + B.v * 8.5, 36, 118); B.phase += B.cadence / 60 * 6.283 * dt * (sprint ? 1.1 : 1); } else B.cadence = 0;
+    if (pedal) { B.cadence = clamp(32 + B.v * 5.5, 36, 125); B.phase += B.cadence / 60 * 6.283 * dt * (sprint ? 1.1 : 1); } else B.cadence = 0;
     B.parkLean = Math.max(0, B.parkLean - dt * 0.6);
   } else {
     B.lean += (0 - B.lean) * Math.min(1, 1.5 * dt);
@@ -885,7 +896,7 @@ function updateCamera(dt) {
     state.shake *= Math.exp(-5 * dt);
   }
   const speed = state.mode === 'ride' ? B.v : Math.hypot(P.vx, P.vz);
-  const fov = state.mode === 'dead' ? camera.fov : 72 + clamp(speed, 0, 22) * 0.95 + (state.mode === 'dead' ? 0 : (!P.onGround && state.mode === 'walk' ? 6 : 0));
+  const fov = state.mode === 'dead' ? camera.fov : 72 + clamp(speed, 0, 30) * 0.8 + (state.mode === 'dead' ? 0 : (!P.onGround && state.mode === 'walk' ? 6 : 0));
   if (Math.abs(fov - camera.fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, 6 * dt); camera.updateProjectionMatrix(); }
 }
 
