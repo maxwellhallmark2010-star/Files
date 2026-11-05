@@ -22,7 +22,8 @@ function initVehicleMats() {
   SH.chrome = new THREE.MeshPhongMaterial({ color: 0xd8dde2, specular: 0xffffff, shininess: 120 });
   SH.rubber = new THREE.MeshLambertMaterial({ color: 0x151515 });
   SH.rim = new THREE.MeshPhongMaterial({ color: 0x9a9ea2, specular: 0xaaaaaa, shininess: 60 });
-  SH.glass = new THREE.MeshPhongMaterial({ color: 0x1c2a36, specular: 0xffffff, shininess: 100, transparent: true, opacity: 0.6 });
+  SH.glass = new THREE.MeshPhongMaterial({ color: 0x48687a, specular: 0xffffff, shininess: 110, transparent: true, opacity: 0.28, depthWrite: false });
+  SH.headliner = new THREE.MeshLambertMaterial({ color: 0x8a8274 });
   SH.dark = new THREE.MeshLambertMaterial({ color: 0x161616 });
   SH.interior = new THREE.MeshLambertMaterial({ color: 0x2c2420 });
   SH.seatRed = new THREE.MeshLambertMaterial({ color: 0x7a1a1a });
@@ -72,23 +73,46 @@ function buildCarModel(v) {
   if (T.bike) { buildBikeModel(v); scene.add(root); return; }
   const L = T.len, W = T.wid, H = T.h, roofMat = T.roof ? new THREE.MeshPhongMaterial({ color: T.roof, specular: 0x555555, shininess: 60 }) : v.paint;
   body.position.y = T.ride;
-  const lg = new THREE.BoxGeometry(W, H, L, 4, 3, 12); lg.translate(0, H / 2, 0); shapeLower(lg, T);
-  const lower = new THREE.Mesh(lg, v.paint); lower.castShadow = true; lower.receiveShadow = true; body.add(lower);
-  v.deform.push({ mesh: lower, orig: Float32Array.from(lg.attributes.position.array), W, H, L, y0: 0 });
-  let cabTop = H, seatZ, seatY = H * 0.45;
+  v.roofMat = roofMat; v.pillars = [];
+  const doorLen = T.bus ? 1.0 : (T.van ? 1.0 : Math.min(1.35, (T.cab ? T.cab.len : 2) * 0.6));
+  const doorFront = T.cab ? T.cab.z + T.cab.len / 2 - 0.08 : L / 2 - 0.55;
+  const deformBox = (w, h, d, x, y, z, segs, shape) => {
+    const g = new THREE.BoxGeometry(w, h, d, segs[0], segs[1], segs[2]); g.translate(x, y, z); if (shape) shapeLower(g, T);
+    const m = new THREE.Mesh(g, v.paint); m.castShadow = true; m.receiveShadow = true; body.add(m);
+    v.deform.push({ mesh: m, orig: Float32Array.from(g.attributes.position.array), W, H, L, y0: 0 }); return m;
+  };
+  if (T.cab) {
+    // hollow shell: nose + tail + floor pan + door-height side panels, so the cabin is open to the windows
+    const cf = T.cab.z + T.cab.len / 2, cr = T.cab.z - T.cab.len / 2, fl = H * 0.35, st = 0.07;
+    deformBox(W, H, L / 2 - cf, 0, H / 2, (L / 2 + cf) / 2, [4, 3, 6], true);
+    deformBox(W, H, cr + L / 2, 0, H / 2, (cr - L / 2) / 2, [4, 3, 5], true);
+    deformBox(W, fl, cf - cr, 0, fl / 2, (cf + cr) / 2, [4, 1, 4], false);
+    const dr = doorFront - doorLen;
+    for (const s of [1, -1]) {
+      if (cf - doorFront > 0.01) deformBox(st, H, cf - doorFront, s * (W / 2 - st / 2), H / 2, (cf + doorFront) / 2, [1, 3, 1], false);
+      if (dr - cr > 0.02) deformBox(st, H, dr - cr, s * (W / 2 - st / 2), H / 2, (dr + cr) / 2, [1, 3, 3], false);
+      deformBox(st, H * 0.1, doorLen, s * (W / 2 - st / 2), H * 0.05, doorFront - doorLen / 2, [1, 1, 2], false); // sill under the door
+    }
+    boxMesh(W - st * 2, 0.012, cf - cr, SH.interior, 0, fl + 0.006, (cf + cr) / 2, body); // carpet
+  } else deformBox(W, H, L, 0, H / 2, 0, [4, 3, 12], true);
+  let cabTop = H, seatZ, seatY = H * (T.cab ? 0.38 : 0.45);
   if (T.cab) {
     const c = T.cab;
-    const cg = new THREE.BoxGeometry(W * 0.86, c.h, c.len, 2, 2, 5); cg.translate(0, H + c.h / 2, c.z);
-    const p = cg.attributes.position;
-    const zr = c.z - c.len / 2;
-    for (let i = 0; i < p.count; i++) {
-      const k = clamp((p.getY(i) - H) / c.h, 0, 1), u = (p.getZ(i) - zr) / c.len;
-      p.setX(i, p.getX(i) * (1 - c.tx * k));
-      p.setZ(i, lerp(zr + c.tr * k, zr + c.len - c.tf * k, u));
+    const xb = W * 0.43, xt = xb * (1 - c.tx), zf0 = c.z + c.len / 2, zr0 = c.z - c.len / 2, yt = H + c.h, ztf = zf0 - c.tf, ztr = zr0 + c.tr;
+    const pillar = (ax, ay, az, bx, by, bz, t) => {
+      const a = new V3(ax, ay, az), d = new V3(bx - ax, by - ay, bz - az), len = d.length();
+      const m = new THREE.Mesh(new THREE.BoxGeometry(t, len + 0.05, t * 1.3), roofMat);
+      m.position.copy(a).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(UP, d.normalize()); m.castShadow = true; body.add(m); v.pillars.push(m);
+    };
+    const zb = doorFront - doorLen;
+    for (const s of [1, -1]) {
+      pillar(s * xb, H, zf0, s * xt, yt, ztf, 0.075);           // A pillar
+      pillar(s * xb, H, zr0, s * xt, yt, ztr, 0.11);            // C pillar
+      if (zb > zr0 + 0.3) pillar(s * xb, H, zb, s * xt, yt, lerp(ztr, ztf, (zb - zr0) / c.len), 0.085); // B pillar
+      boxMesh(0.05, 0.05, ztf - ztr, roofMat, s * xt, yt - 0.03, (ztf + ztr) / 2, body); // roof rail
     }
-    cg.computeVertexNormals();
-    const cab = new THREE.Mesh(cg, roofMat); cab.castShadow = true; body.add(cab);
-    v.deform.push({ mesh: cab, orig: Float32Array.from(cg.attributes.position.array), W: W * 0.86, H: H + c.h, L: c.len * 1.2, y0: H, cz: c.z });
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(xt * 2 + 0.06, 0.05, ztf - ztr + 0.08), [roofMat, roofMat, roofMat, SH.headliner, roofMat, roofMat]);
+    roof.position.set(0, yt - 0.01, (ztf + ztr) / 2); roof.castShadow = true; body.add(roof); v.pillars.push(roof);
     cabTop = H + c.h;
     // glass
     const fz = c.z + c.len / 2, rz = c.z - c.len / 2;
@@ -102,6 +126,7 @@ function buildCarModel(v) {
     const rwin = boxMesh(0.03, c.h * 0.74, sideLen, SH.glass, -sideX, H + c.h * 0.5, sideZ, body); rwin.rotation.z = -sA;
     v.glass.push({ mesh: rwin, c: new V3(-sideX, H + c.h / 2, sideZ), name: 'right' });
     v.cabWin = { sideX, sideZ, sideLen, sA };
+    { const z0 = zr0 + c.tr * 0.6 + 0.06, z1 = zb - 0.05; if (z1 - z0 > 0.2) { const lw = boxMesh(0.03, c.h * 0.74, z1 - z0, SH.glass, sideX, H + c.h * 0.5, (z0 + z1) / 2, body); lw.rotation.z = sA; v.glass.push({ mesh: lw, c: new V3(sideX, H + c.h / 2, (z0 + z1) / 2), name: 'leftRear' }); } }
     seatZ = c.z - c.len * 0.1;
     if (T.bed) seatZ = c.z - 0.1;
   } else {
@@ -120,8 +145,6 @@ function buildCarModel(v) {
     cabTop = H;
   }
   // doors (left = driver, right = passenger)
-  const doorLen = T.bus ? 1.0 : (T.van ? 1.0 : Math.min(1.35, (T.cab ? T.cab.len : 2) * 0.6));
-  const doorFront = T.cab ? T.cab.z + T.cab.len / 2 - 0.08 : L / 2 - 0.55;
   v.doors = [];
   for (const s of [1, -1]) {
     const piv = new THREE.Group(); piv.position.set(s * (W / 2 + 0.005), 0, doorFront); body.add(piv);
@@ -177,7 +200,11 @@ function buildCarModel(v) {
   v.seatLocal = new V3(seatX, seatY, seatZ);
   const seatMat = T.deep ? SH.seatRed : SH.interior;
   if (T.bench) { boxMesh(W * 0.82, 0.14, 0.55, seatMat, 0, seatY - 0.08, seatZ, body); boxMesh(W * 0.82, 0.55, 0.12, seatMat, 0, seatY + 0.22, seatZ - 0.32, body).rotation.x = -0.18; }
-  else for (const sx of [seatX, -seatX]) { boxMesh(0.5, 0.14, 0.55, seatMat, sx, seatY - 0.08, seatZ, body); boxMesh(0.5, 0.6, 0.12, seatMat, sx, seatY + 0.24, seatZ - 0.32, body).rotation.x = -0.18; }
+  else for (const sx of [seatX, -seatX]) { boxMesh(0.5, 0.14, 0.55, seatMat, sx, seatY - 0.08, seatZ, body); boxMesh(0.5, 0.6, 0.12, seatMat, sx, seatY + 0.24, seatZ - 0.32, body).rotation.x = -0.18; if (T.cab) boxMesh(0.26, 0.17, 0.09, seatMat, sx, seatY + 0.62, seatZ - 0.39, body).rotation.x = -0.18; }
+  if (T.cab && !T.bed) {
+    const rz = Math.max(seatZ - 0.82, T.cab.z - T.cab.len / 2 + 0.42);
+    if (rz <= seatZ - 0.55) { boxMesh(W * 0.8, 0.14, 0.5, seatMat, 0, seatY - 0.06, rz, body); boxMesh(W * 0.8, 0.55, 0.12, seatMat, 0, seatY + 0.24, rz - 0.3, body).rotation.x = -0.2; }
+  }
   const wheelZ = seatZ + 0.52, wheelY = seatY + 0.42;
   const dashZ = Math.min((T.cab ? T.cab.z + T.cab.len / 2 : L / 2) - 0.2, wheelZ + 0.4);
   boxMesh(W * 0.86, 0.2, 0.4, SH.interior, 0, Math.max(H - 0.02, wheelY - 0.12), dashZ, body);
@@ -514,6 +541,7 @@ class Vehicle {
     this.exploded = true; this.burning = false; this.health = -1;
     const p = this.pos.clone(); p.y = 1;
     this.paint.color.setHex(0x161616); this.paint.shininess = 5; this.paint.specular.setHex(0x111111);
+    if (this.roofMat && this.roofMat !== this.paint) this.roofMat.color.setHex(0x1a1a1a);
     for (const g of this.glass) this.breakGlass(g);
     for (const w of this.wheels) if (w.attached && !w.popped) this.popTire(w);
     for (const l of this.lights) l.visible = false;

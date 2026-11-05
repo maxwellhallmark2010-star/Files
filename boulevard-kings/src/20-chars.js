@@ -83,7 +83,7 @@ function poseSit(a, L, kind) {
     L[J.LFT].set(0.13, -0.38, 0.52); L[J.RFT].set(-0.13, -0.38, 0.52);
   } else {
     L[J.LKN].set(0.12, 0.08, 0.45); L[J.RKN].set(-0.12, 0.08, 0.45);
-    L[J.LFT].set(0.13, -0.3, 0.62); L[J.RFT].set(-0.13, -0.3, 0.62);
+    L[J.LFT].set(0.13, -0.17, 0.6); L[J.RFT].set(-0.13, -0.17, 0.6);
   }
   for (const s of [1, -1]) {
     const sh = L[s > 0 ? J.LSH : J.RSH];

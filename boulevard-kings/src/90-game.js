@@ -538,7 +538,7 @@ function updateCamera(rdt) {
       _ce.set(player.orbitPitch * 0.8 - 0.04, Math.PI + player.orbitYaw, 0, 'YXZ'); _q1.setFromEuler(_ce);
       camera.quaternion.copy(_cq).multiply(_q1);
       const hp = ch.joints[J.HEAD];
-      camera.position.copy(hp).addScaledVector(v.fwd(_v1), T.bike ? 0.05 : 0.1); camera.position.y += 0.06;
+      camera.position.copy(hp).addScaledVector(v.fwd(_v1), T.bike ? 0.05 : 0.12); camera.position.y += T.bike ? 0.06 : -0.02;
       fov = 74 + Math.min(8, v.speed * 0.2);
     } else {
       ch.hideHead = false;
@@ -854,5 +854,5 @@ function tick(rdt) {
   input.pressed.clear();
   return true;
 }
-window.__bk = { renderChars, renderer, MISSIONS, startMission, saveGame, scene, mouse, touch, setWeapon, sim(sec, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) tick(dt); }, press(a) { input.pressed.add(a); }, player, vehicles, chars, peds, env, settings, mission, game, startEnter, Vehicle, STORES, PLACES, enterStore, input, keys, camera };
+window.__bk = { seatCharacter, renderChars, renderer, MISSIONS, startMission, saveGame, scene, mouse, touch, setWeapon, sim(sec, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) tick(dt); }, press(a) { input.pressed.add(a); }, player, vehicles, chars, peds, env, settings, mission, game, startEnter, Vehicle, STORES, PLACES, enterStore, input, keys, camera };
 try { init(); } catch (e) { console.error(e); const l = $('loading'); if (l) l.textContent = 'Failed to start: ' + e.message; }
