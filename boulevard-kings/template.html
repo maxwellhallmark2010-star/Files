@@ -1,0 +1,240 @@
+<title>Boulevard Kings</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Pirata+One&display=swap">
+<style>
+/* Layout: full-bleed WebGL canvas, HUD pinned to the safe-area corners, touch controls on a layer above. */
+:root{
+  --ink:#f4efe6; --ink-dim:#c9c2b4; --shade:rgba(12,10,14,.72); --shade-2:rgba(12,10,14,.86);
+  --money:#62d35a; --hp:#d8342a; --armor:#3c8fe0; --gold:#ffd23a; --chrome:#d9dde2; --candy:#8b2fd0; --fail:#ff4a3a;
+  --f-title:'Pirata One','UnifrakturMaguntia',Georgia,serif; --f-num:'Anton',Impact,'Arial Narrow Bold',sans-serif; --f-ui:'Barlow Condensed','Arial Narrow',Arial,sans-serif;
+  --sl:env(safe-area-inset-left,0px); --sr:env(safe-area-inset-right,0px); --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;overflow:hidden;background:#07070a;color:var(--ink);font-family:var(--f-ui);user-select:none;-webkit-user-select:none;touch-action:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+.outline{text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 3px 6px rgba(0,0,0,.6)}
+button{font-family:var(--f-ui);cursor:pointer}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* HUD */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:7}
+#stats{position:absolute;top:calc(10px + var(--st));right:calc(14px + var(--sr));display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+#topline{display:flex;gap:12px;align-items:baseline}
+#clock{font-family:var(--f-num);font-size:26px;letter-spacing:1px}
+#weatherTxt{font-size:13px;letter-spacing:2px;color:var(--ink-dim);font-weight:700}
+#money{font-family:var(--f-num);font-size:34px;color:var(--money);letter-spacing:1px;line-height:1}
+.bar{width:170px;height:11px;background:rgba(0,0,0,.6);border:2px solid #000;position:relative}
+.bar i{position:absolute;left:0;top:0;bottom:0;display:block;transition:width .2s}
+#hpFill{background:linear-gradient(var(--hp),#8a1a12)} #arFill{background:linear-gradient(var(--armor),#1c4f8a)}
+#wpn{display:flex;align-items:center;gap:10px;margin-top:2px;background:var(--shade);padding:4px 10px;border:1px solid rgba(255,255,255,.12)}
+#wpnName{font-family:var(--f-num);font-size:15px;letter-spacing:1.5px}
+#wpnAmmo{font-family:var(--f-num);font-size:15px;color:var(--gold);font-variant-numeric:tabular-nums}
+#timer{font-family:var(--f-num);font-size:30px;color:var(--gold)}
+#speedo{position:absolute;right:calc(16px + var(--sr));bottom:calc(16px + var(--sb));text-align:right}
+#spd{font-family:var(--f-num);font-size:52px;line-height:.9;font-variant-numeric:tabular-nums}
+#spdU{font-size:14px;letter-spacing:2px;font-weight:700;color:var(--ink-dim)}
+#carName{font-family:var(--f-title);font-size:24px;color:var(--chrome)}
+#carHpBar{width:150px;height:7px;background:rgba(0,0,0,.6);border:1px solid #000;margin-left:auto}
+#carHp{display:block;height:100%;background:#9ad35a} #carHp.warn{background:#e0a020} #carHp.crit{background:var(--fail)}
+body.mobile #speedo{right:auto;left:calc(190px + var(--sl));bottom:auto;top:calc(8px + var(--st));text-align:left}
+body.mobile #carHpBar{margin:0;width:100px} body.mobile #carName{font-size:18px}
+body.mobile #spd{font-size:38px}
+#cross{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px}
+#cross:before,#cross:after{content:"";position:absolute;background:#fff;box-shadow:0 0 0 1px #000}
+#cross:before{left:12px;top:0;width:2px;height:26px} #cross:after{top:12px;left:0;height:2px;width:26px}
+#prompt{position:absolute;left:50%;bottom:calc(30% + var(--sb));transform:translateX(-50%);background:var(--shade-2);padding:8px 16px;font-size:19px;border-left:4px solid var(--gold);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+#prompt b{color:var(--gold)}
+#objective{position:absolute;left:50%;bottom:calc(14% + var(--sb));transform:translateX(-50%);font-size:22px;font-weight:600;text-align:center;max-width:min(760px,88vw);line-height:1.25}
+#objective b{color:var(--gold)} #objective .sub{font-size:16px;color:var(--ink-dim)}
+#objective .count{font-family:var(--f-num);font-size:64px;color:var(--gold)}
+body.mobile #objective{bottom:auto;top:calc(84px + var(--st));font-size:16px;max-width:50vw}
+body.mobile #prompt{bottom:auto;top:calc(150px + var(--st));font-size:15px}
+#toast{position:absolute;left:50%;top:calc(18% + var(--st));transform:translateX(-50%);font-size:20px;font-weight:600;background:var(--shade);padding:6px 14px;opacity:0}
+#toast.show{animation:toast 2.6s ease forwards} #toast b{color:var(--gold)}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,6px)}8%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}
+#bigmsg{position:absolute;left:0;right:0;top:30%;text-align:center;padding:0 16px}
+#bigTitle{font-family:var(--f-title);font-size:clamp(44px,9vw,92px);line-height:1;color:var(--ink)}
+#bigmsg.pass #bigTitle{color:var(--gold)} #bigmsg.fail #bigTitle{color:var(--fail)}
+#bigSub{font-size:clamp(16px,2.6vw,24px);font-weight:600;margin-top:6px;color:var(--ink)}
+#bigmsg.show{animation:big 3.6s ease forwards}
+@keyframes big{0%{opacity:0;transform:scale(1.2)}10%{opacity:1;transform:scale(1)}82%{opacity:1}100%{opacity:0}}
+#hurt{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(160,0,0,.75) 100%);opacity:0;z-index:4}
+#fade{position:fixed;inset:0;background:#000;opacity:0;transition:opacity .35s;pointer-events:none;z-index:40}
+#fade.on{opacity:1}
+/* minimap */
+#mapPanel{position:absolute;top:calc(10px + var(--st));left:calc(14px + var(--sl));pointer-events:auto;display:flex;align-items:flex-start;gap:4px;z-index:7}
+#minimap{width:170px;height:170px;border-radius:50%;border:3px solid #0b0b0b;box-shadow:0 0 0 2px rgba(255,255,255,.35),0 6px 18px rgba(0,0,0,.5);cursor:zoom-in;background:#26302a;display:block}
+#mapToggle{width:30px;height:30px;border:0;background:var(--shade-2);color:var(--ink);font-size:16px;border:1px solid rgba(255,255,255,.2);line-height:1}
+#mapPanel.collapsed #minimap{display:none}
+#mapPanel.collapsed #mapToggle{transform:rotate(180deg)}
+body.mobile #minimap{width:128px;height:128px}
+#pauseBtn{position:fixed;top:calc(10px + var(--st));left:50%;transform:translateX(-50%);z-index:8;pointer-events:auto;width:44px;height:36px;border:1px solid rgba(255,255,255,.25);background:var(--shade-2);color:var(--ink);font-family:var(--f-num);font-size:16px;letter-spacing:2px}
+body:not(.mobile) #pauseBtn{display:none}
+/* touch controls */
+#touch{position:fixed;inset:0;z-index:6;touch-action:none}
+#touch .tb{position:absolute;display:flex;align-items:center;justify-content:center;border-radius:14px;background:rgba(20,18,24,.5);border:2px solid rgba(255,255,255,.35);color:#fff;font-family:var(--f-num);font-size:15px;letter-spacing:1px;text-shadow:0 1px 2px #000;pointer-events:auto}
+#touch .tb.on{background:rgba(255,210,58,.45);border-color:var(--gold)}
+#touch .tb.round{border-radius:50%}
+#touch .tb.ready{border-color:var(--gold);box-shadow:0 0 14px rgba(255,210,58,.6)}
+#touch.drive .foot-only,#touch.foot .drive-only{display:none}
+#bGas{right:calc(16px + var(--sr));bottom:calc(18px + var(--sb));width:84px;height:136px;background:rgba(40,120,40,.45)}
+#bBrake{right:calc(110px + var(--sr));bottom:calc(18px + var(--sb));width:84px;height:100px;background:rgba(140,30,20,.45)}
+#bHand{right:calc(110px + var(--sr));bottom:calc(128px + var(--sb));width:84px;height:50px;font-size:13px}
+#bFireD{right:calc(16px + var(--sr));bottom:calc(166px + var(--sb));width:84px;height:64px;font-size:14px}
+#bFire{right:calc(18px + var(--sr));bottom:calc(26px + var(--sb));width:92px;height:92px;background:rgba(160,30,20,.5)}
+#bAim{right:calc(122px + var(--sr));bottom:calc(84px + var(--sb));width:64px;height:64px}
+#bJump{right:calc(122px + var(--sr));bottom:calc(14px + var(--sb));width:64px;height:60px}
+#bRun{right:calc(30px + var(--sr));bottom:calc(132px + var(--sb));width:68px;height:52px}
+#rightCol{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(10px + var(--sb));display:flex;flex-wrap:nowrap;justify-content:center;gap:6px;pointer-events:none}
+#rightCol .tb{position:static;width:66px;height:42px;font-size:13px}
+@media (orientation:portrait){#rightCol{left:auto;transform:none;right:calc(10px + var(--sr));bottom:auto;top:calc(40% - 60px);flex-direction:column;width:auto}}
+#wheel{position:absolute;left:calc(18px + var(--sl));bottom:calc(18px + var(--sb));width:180px;height:180px;border-radius:50%;pointer-events:auto}
+#wheelImg{width:100%;height:100%;will-change:transform}
+#joyBase{position:absolute;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.35);pointer-events:none}
+#joyKnob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.45);border:2px solid #fff}
+#joyHint{position:absolute;left:calc(40px + var(--sl));bottom:calc(60px + var(--sb));font-size:14px;letter-spacing:1px;color:rgba(255,255,255,.4);pointer-events:none}
+#touch.drive #joyHint{display:none}
+body.mobile #money{font-size:26px} body.mobile #clock{font-size:20px} body.mobile .bar{width:130px;height:9px} body.mobile #wpn{padding:2px 8px} body.mobile #wpnName,body.mobile #wpnAmmo{font-size:13px}
+body.mobile #bigmsg{top:24%} body.mobile #bigTitle{font-size:clamp(34px,7vw,64px)} body.mobile #bigSub{font-size:16px}
+body.mobile #toast{top:calc(27% + var(--st));font-size:16px}
+@media (max-height:430px){#wheel{width:150px;height:150px}#bGas{height:112px;width:76px}#bBrake{height:84px;width:76px;right:calc(100px + var(--sr))}#bHand{right:calc(100px + var(--sr));bottom:calc(108px + var(--sb))}#bFireD{bottom:calc(138px + var(--sb));height:54px;width:76px}#rightCol{top:calc(30% - 60px)}#rightCol .tb{height:38px;width:68px}}
+/* overlays */
+.overlay{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:16px max(16px,var(--sr)) 16px max(16px,var(--sl))}
+.card{background:linear-gradient(160deg,rgba(26,20,34,.95),rgba(10,9,12,.96));border:1px solid rgba(255,255,255,.14);border-top:3px solid var(--gold);padding:20px 22px;width:min(460px,100%);max-height:calc(100% - 8px);overflow:auto}
+.card h2{font-family:var(--f-title);font-size:40px;margin:0 0 10px;font-weight:400;color:var(--gold);line-height:1}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:18px;font-weight:600}
+.row button,.btn{background:#1d1a22;border:1px solid rgba(255,255,255,.25);color:var(--ink);padding:8px 14px;font-size:16px;font-weight:700;letter-spacing:1px;min-width:120px}
+.row button:hover,.btn:hover{border-color:var(--gold)}
+.btn.primary{background:var(--gold);color:#140f05;border-color:var(--gold)}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+input[type=range]{accent-color:var(--gold);width:140px}
+#help{font-size:15px;line-height:1.45;color:var(--ink-dim);margin-top:10px}
+#help b{color:var(--ink);font-family:var(--f-num);font-weight:400;letter-spacing:1px}
+#help h4{margin:10px 0 4px;color:var(--gold);letter-spacing:2px;font-size:14px}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:3px 12px}
+/* title */
+#title{z-index:35;background:radial-gradient(ellipse at 50% 40%,rgba(10,6,16,.15),rgba(5,3,8,.85));flex-direction:column;text-align:center}
+#title h1{font-family:var(--f-title);font-weight:400;font-size:clamp(58px,13vw,140px);margin:0;line-height:.9;color:var(--ink);text-shadow:0 0 30px rgba(139,47,208,.6),0 4px 0 #000,0 0 2px #000}
+#title .tag{font-size:clamp(15px,2.4vw,21px);letter-spacing:6px;text-transform:uppercase;font-weight:700;color:var(--gold);margin:8px 0 22px}
+#menuBtns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+#menuBtns .btn{font-size:20px;padding:12px 26px;min-width:170px}
+#loading{font-size:18px;letter-spacing:3px;color:var(--ink-dim)}
+#titleHelp{margin-top:22px;font-size:14px;color:var(--ink-dim);max-width:640px;line-height:1.5}
+#titleHelp b{color:var(--ink)}
+/* shop */
+.shopRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.shopRow .si{display:flex;gap:10px;align-items:center;min-width:0}
+.shopRow b{font-size:19px;display:block} .shopRow small{font-size:14px;color:var(--ink-dim)}
+.shopRow .buy{background:var(--money);color:#06210a;border:0;font-family:var(--f-num);font-size:17px;padding:8px 12px;min-width:84px}
+.shopRow .buy:disabled{background:#3a3a3a;color:#888}
+.sw{width:22px;height:22px;border:2px solid #000;flex:none}
+#shopMoney{font-family:var(--f-num);color:var(--money);font-size:24px}
+/* big map */
+#bigmap{z-index:32;background:rgba(5,6,6,.92);padding:0}
+#bigCanvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
+#mapClose{position:absolute;top:calc(12px + var(--st));right:calc(12px + var(--sr));width:48px;height:48px;font-size:26px;background:var(--fail);color:#fff;border:2px solid #000;font-family:var(--f-num)}
+#mapZoom{position:absolute;right:calc(12px + var(--sr));top:calc(70px + var(--st));display:flex;flex-direction:column;gap:8px}
+#mapZoom button{width:48px;height:48px;font-size:26px;background:var(--shade-2);color:var(--ink);border:1px solid rgba(255,255,255,.3);font-family:var(--f-num)}
+#legend{position:absolute;left:calc(12px + var(--sl));bottom:calc(12px + var(--sb));background:var(--shade-2);padding:10px 12px;font-size:14px;display:grid;gap:4px;max-height:60%;overflow:auto;pointer-events:none}
+#legend i{display:inline-flex;width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;font-style:normal;font-size:10px;font-weight:700;color:#111;margin-right:8px;border:1.5px solid #111}
+#mapTitle{position:absolute;left:calc(14px + var(--sl));top:calc(10px + var(--st));font-family:var(--f-title);font-size:34px;color:var(--gold);pointer-events:none}
+@media (prefers-reduced-motion:reduce){#toast.show,#bigmsg.show{animation-duration:.01s;opacity:1}}
+</style>
+
+<canvas id="c"></canvas>
+<div id="hurt"></div>
+<div id="hud" hidden>
+  <div id="mapPanel"><canvas id="minimap" aria-label="Minimap. Click to open the full map."></canvas><button id="mapToggle" aria-label="Show or hide minimap">◀</button></div>
+  <div id="stats">
+    <div id="topline"><span id="weatherTxt" class="outline">SUNNY</span><span id="clock" class="outline">10:00</span></div>
+    <div id="money" class="outline">$00000500</div>
+    <div class="bar" id="hpBar"><i id="hpFill" style="width:100%"></i></div>
+    <div class="bar" id="arBar" hidden><i id="arFill" style="width:0%"></i></div>
+    <div id="wpn"><span id="wpnName">FISTS</span><span id="wpnAmmo"></span></div>
+    <div id="timer" class="outline" hidden>0:00</div>
+  </div>
+  <div id="speedo" hidden><div><span id="spd" class="outline">0</span> <span id="spdU">MPH</span></div><div id="carName" class="outline"></div><div id="carHpBar"><i id="carHp"></i></div></div>
+  <div id="cross" hidden></div>
+  <div id="objective" class="outline" hidden></div>
+  <div id="prompt" hidden></div>
+  <div id="toast" class="outline" hidden></div>
+  <div id="bigmsg" hidden><div id="bigTitle" class="outline"></div><div id="bigSub" class="outline"></div></div>
+</div>
+<button id="pauseBtn" hidden aria-label="Pause">II</button>
+
+<div id="touch" class="foot" hidden>
+  <div id="joyHint">DRAG TO MOVE</div>
+  <div id="joyBase" hidden><div id="joyKnob"></div></div>
+  <div id="wheel" class="drive-only"><svg id="wheelImg" viewBox="0 0 200 200" aria-hidden="true">
+    <defs><radialGradient id="wg" cx="50%" cy="45%" r="55%"><stop offset="0" stop-color="#f4f4f4"/><stop offset="1" stop-color="#7a7f86"/></radialGradient></defs>
+    <circle cx="100" cy="100" r="88" fill="none" stroke="#111" stroke-width="22" opacity=".85"/>
+    <circle cx="100" cy="100" r="88" fill="none" stroke="url(#wg)" stroke-width="15"/>
+    <g fill="none" stroke="#d9dde2" stroke-width="5" opacity=".9"><circle cx="100" cy="100" r="80" stroke-dasharray="8 9"/></g>
+    <g stroke="#cfd3d8" stroke-width="10" stroke-linecap="round"><line x1="100" y1="100" x2="100" y2="16"/><line x1="100" y1="100" x2="27" y2="142"/><line x1="100" y1="100" x2="173" y2="142"/></g>
+    <circle cx="100" cy="100" r="24" fill="#1a1a1a" stroke="#d9dde2" stroke-width="4"/><circle cx="100" cy="100" r="9" fill="#8b2fd0"/>
+    <rect x="94" y="4" width="12" height="20" rx="3" fill="#ffd23a"/>
+  </svg></div>
+  <div class="tb drive-only" id="bGas" data-btn="gas">GAS</div>
+  <div class="tb drive-only" id="bBrake" data-btn="brake">BRAKE</div>
+  <div class="tb drive-only" id="bHand" data-btn="handbrake">E-BRAKE</div>
+  <div class="tb drive-only round" id="bFireD" data-btn="fire">SHOOT</div>
+  <div class="tb foot-only round" id="bFire" data-btn="fire">FIRE</div>
+  <div class="tb foot-only round" id="bAim" data-btn="aim">AIM</div>
+  <div class="tb foot-only" id="bJump" data-btn="jump">JUMP</div>
+  <div class="tb foot-only" id="bRun" data-btn="sprint">RUN</div>
+  <div id="rightCol">
+    <div class="tb" id="bEnter" data-btn="enter">ENTER</div>
+    <div class="tb" id="bUse" data-btn="interact">USE</div>
+    <div class="tb" id="bWpn" data-btn="weapon">FIST</div>
+    <div class="tb drive-only" data-btn="camera">CAM</div>
+    <div class="tb drive-only" data-btn="horn">HORN</div>
+    <div class="tb drive-only" id="bHop" data-btn="hop" hidden>HOP</div>
+    <div class="tb foot-only" data-btn="reload">RELOAD</div>
+  </div>
+</div>
+
+<div id="fade"></div>
+
+<div id="bigmap" class="overlay" hidden>
+  <canvas id="bigCanvas" aria-label="City map. Drag to pan, tap to set a waypoint."></canvas>
+  <div id="mapTitle" class="outline">Boulevard City</div>
+  <button id="mapClose" aria-label="Close map">X</button>
+  <div id="mapZoom"><button id="mapZoomIn" aria-label="Zoom in">+</button><button id="mapZoomOut" aria-label="Zoom out">−</button></div>
+  <div id="legend"></div>
+</div>
+
+<div id="shop" class="overlay" hidden><div class="card">
+  <h2 id="shopTitle">Store</h2>
+  <div class="row" style="border:0;padding-top:0"><span>Cash</span><span id="shopMoney">$0</span></div>
+  <div id="shopList"></div>
+  <div class="btns"><button class="btn" id="shopClose">Leave counter</button></div>
+</div></div>
+
+<div id="pause" class="overlay" hidden><div class="card">
+  <h2>Paused</h2>
+  <div class="row"><span>Mobile controls</span><button id="optMobileBtn"><span id="optMobile">OFF</span></button></div>
+  <div class="row"><span>Driving camera</span><button id="optCamBtn"><span id="optCam">THIRD PERSON</span></button></div>
+  <div class="row"><span>Graphics</span><button id="optGfxBtn"><span id="optGfx">HIGH</span></button></div>
+  <div class="row"><span>Sound</span><button id="optSoundBtn"><span id="optSound">ON</span></button></div>
+  <div class="row"><span>Look sensitivity</span><input type="range" id="optSens" min="0.3" max="2.5" step="0.05" value="1"></div>
+  <div class="btns"><button class="btn primary" id="resume">Resume</button><button class="btn" id="saveBtn">Save game</button><button class="btn" id="helpBtn">Controls</button><button class="btn" id="quitBtn">Save &amp; quit to title</button></div>
+  <div id="help" hidden>
+    <h4>PC</h4>
+    <div class="keys"><b>WASD</b><span>walk / drive · mouse to look</span><b>SHIFT · SPACE</b><span>run · jump (on foot) / handbrake drift (driving)</span><b>F</b><span>enter / exit vehicle (moving fast = bail out)</span><b>E</b><span>use: stores, shop counter, missions, repairs</span><b>LMB · RMB</b><span>fire · aim</span><b>Q · 1 2 3 · R</b><span>switch weapon · pick weapon · reload</span><b>C</b><span>first / third person while driving</span><b>H · G</b><span>hydraulics hop (lowriders) · horn</span><b>M</b><span>full map (click to set a waypoint)</span><b>ESC / P</b><span>pause</span></div>
+    <h4>MOBILE</h4>
+    <div class="keys"><b>LEFT THUMB</b><span>drag anywhere on the left to move</span><b>RIGHT THUMB</b><span>drag on the right side to look around</span><b>WHEEL</b><span>turn the steering wheel with your thumb</span><b>GAS · BRAKE</b><span>hold; BRAKE reverses when stopped</span><b>E-BRAKE</b><span>hold while turning to drift</span></div>
+  </div>
+</div></div>
+
+<div id="title" class="overlay">
+  <h1>Boulevard Kings</h1>
+  <div class="tag">Low &amp; slow since 2000</div>
+  <div id="loading">BUILDING THE CITY…</div>
+  <div id="menuBtns" hidden><button class="btn primary" id="contBtn" hidden>Continue</button><button class="btn" id="newBtn">New game</button></div>
+  <div id="titleHelp"><b>PC:</b> WASD, mouse, F to get in cars, E to use, H for hydraulics, C for first person. <b>Mobile:</b> left thumb moves, right thumb looks, steering wheel and pedals appear when you drive. Toggle mobile controls any time from the pause menu.</div>
+</div>
+
+<script>/*__THREE__*/</script>
+<script>/*__GAME__*/</script>
