@@ -854,5 +854,5 @@ function tick(rdt) {
   input.pressed.clear();
   return true;
 }
-window.__bk = { renderer, MISSIONS, startMission, saveGame, scene, mouse, touch, setWeapon, sim(sec, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) tick(dt); }, press(a) { input.pressed.add(a); }, player, vehicles, chars, peds, env, settings, mission, game, startEnter, Vehicle, STORES, PLACES, enterStore, input, keys, camera };
+window.__bk = { renderChars, renderer, MISSIONS, startMission, saveGame, scene, mouse, touch, setWeapon, sim(sec, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) tick(dt); }, press(a) { input.pressed.add(a); }, player, vehicles, chars, peds, env, settings, mission, game, startEnter, Vehicle, STORES, PLACES, enterStore, input, keys, camera };
 try { init(); } catch (e) { console.error(e); const l = $('loading'); if (l) l.textContent = 'Failed to start: ' + e.message; }

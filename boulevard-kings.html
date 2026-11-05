@@ -1870,7 +1870,9 @@ function writeChar(ch, base) {
   // feet
   for (const [k, kn, ft] of [[12, J.LKN, J.LFT], [13, J.RKN, J.RFT]]) {
     limbBasis(P[kn], P[ft], _rx);
-    _bc.copy(P[ft]).addScaledVector(_bz, 0.06 * s).addScaledVector(_by, -0.01);
+    // shin basis: _by points knee->foot (down), _bx is the body's left, so _bz = _bx x _by points BACKWARD.
+    // push the shoe forward (toes ahead of the ankle, small heel behind)
+    _bc.copy(P[ft]).addScaledVector(_bz, -0.08 * s).addScaledVector(_by, -0.01);
     setPart(base + k, _bc, _bx, _by, _bz, 0.11 * s, 0.09 * s, 0.26 * s, c.shoes);
   }
 }
@@ -4455,7 +4457,7 @@ function tick(rdt) {
   input.pressed.clear();
   return true;
 }
-window.__bk = { renderer, MISSIONS, startMission, saveGame, scene, mouse, touch, setWeapon, sim(sec, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) tick(dt); }, press(a) { input.pressed.add(a); }, player, vehicles, chars, peds, env, settings, mission, game, startEnter, Vehicle, STORES, PLACES, enterStore, input, keys, camera };
+window.__bk = { renderChars, renderer, MISSIONS, startMission, saveGame, scene, mouse, touch, setWeapon, sim(sec, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) tick(dt); }, press(a) { input.pressed.add(a); }, player, vehicles, chars, peds, env, settings, mission, game, startEnter, Vehicle, STORES, PLACES, enterStore, input, keys, camera };
 try { init(); } catch (e) { console.error(e); const l = $('loading'); if (l) l.textContent = 'Failed to start: ' + e.message; }
 
 })();</script>

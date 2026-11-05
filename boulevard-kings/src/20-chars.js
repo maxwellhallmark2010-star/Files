@@ -367,7 +367,9 @@ function writeChar(ch, base) {
   // feet
   for (const [k, kn, ft] of [[12, J.LKN, J.LFT], [13, J.RKN, J.RFT]]) {
     limbBasis(P[kn], P[ft], _rx);
-    _bc.copy(P[ft]).addScaledVector(_bz, 0.06 * s).addScaledVector(_by, -0.01);
+    // shin basis: _by points knee->foot (down), _bx is the body's left, so _bz = _bx x _by points BACKWARD.
+    // push the shoe forward (toes ahead of the ankle, small heel behind)
+    _bc.copy(P[ft]).addScaledVector(_bz, -0.08 * s).addScaledVector(_by, -0.01);
     setPart(base + k, _bc, _bx, _by, _bz, 0.11 * s, 0.09 * s, 0.26 * s, c.shoes);
   }
 }
