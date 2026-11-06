@@ -80,17 +80,20 @@ class Car {
     const sw = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.022, 6, 20), black); this.steerWheel.add(sw);
     const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.025, 0.02), black); this.steerWheel.add(spoke);
     const spoke2 = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.19, 0.02), black); spoke2.position.y = -0.09; this.steerWheel.add(spoke2);
+    const handM = std({ color: 0x7a5236, roughness: 0.9 });
+    [Math.PI * 0.82, Math.PI * 0.18].forEach((a) => { const hnd = new THREE.Mesh(new THREE.SphereGeometry(0.042, 8, 6), handM); hnd.scale.set(1, 1.25, 0.9); hnd.position.set(Math.cos(a) * 0.19, Math.sin(a) * 0.19, 0.015); this.steerWheel.add(hnd); });
     const shirt = std({ color: 0x5f7a92 }), skin = std({ color: 0xb07a52 }), hat = std({ color: 0x8a6a44 }), jeans = std({ color: 0x2f3b52 });
     const D = new THREE.Group(); D.position.set(0.38, 1.2, -0.28); B.add(D);
     const dm = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = true; D.add(o); return o; };
-    dm(new THREE.CylinderGeometry(0.17, 0.15, 0.55, 10), shirt, 0, 0.32, 0, -0.1);
-    dm(new THREE.SphereGeometry(0.11, 12, 10), skin, 0, 0.72, 0.03);
-    dm(new THREE.CylinderGeometry(0.3, 0.3, 0.018, 18), hat, 0, 0.8, 0.03, -0.06);
-    dm(new THREE.CylinderGeometry(0.1, 0.12, 0.13, 12), hat, 0, 0.87, 0.03, -0.06);
-    dm(new THREE.BoxGeometry(0.17, 0.035, 0.03), black, 0, 0.73, 0.13);
+    this.bodyParts = [dm(new THREE.CylinderGeometry(0.17, 0.15, 0.55, 10), shirt, 0, 0.32, 0, -0.1)];
+    this.headParts = [
+      dm(new THREE.SphereGeometry(0.11, 12, 10), skin, 0, 0.72, 0.03),
+      dm(new THREE.CylinderGeometry(0.3, 0.3, 0.018, 18), hat, 0, 0.8, 0.03, -0.06),
+      dm(new THREE.CylinderGeometry(0.1, 0.12, 0.13, 12), hat, 0, 0.87, 0.03, -0.06),
+      dm(new THREE.BoxGeometry(0.17, 0.035, 0.03), black, 0, 0.73, 0.13)];
     [-1, 1].forEach((s) => {
-      dm(new THREE.CylinderGeometry(0.045, 0.04, 0.42, 8), shirt, s * 0.2, 0.42, 0.22, -1.15, 0, s * 0.15);
-      dm(new THREE.CylinderGeometry(0.06, 0.06, 0.5, 8), jeans, s * 0.1, 0.02, 0.27, -1.45);
+      this.bodyParts.push(dm(new THREE.CylinderGeometry(0.045, 0.04, 0.42, 8), shirt, s * 0.2, 0.42, 0.22, -1.15, 0, s * 0.15));
+      this.bodyParts.push(dm(new THREE.CylinderGeometry(0.06, 0.06, 0.5, 8), jeans, s * 0.1, 0.02, 0.27, -1.45));
     });
     // wheels: pivot (steer) → spin
     this.wheels = [];
@@ -106,6 +109,38 @@ class Car {
       for (let k = 0; k < 5; k++) { const nut = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.03, 0.03), metal); nut.position.set(0, Math.cos(k * 1.256) * 0.16, Math.sin(k * 1.256) * 0.16); spin.add(nut); }
       this.wheels.push({ pivot, spin, side: s, z, front: i < 2, y: CAR.r });
     });
+    // doors with framed roll-up windows (the glass slides down inside the door skin)
+    this.glass = [];
+    const winGlass = new THREE.MeshStandardMaterial({ color: 0x9fc0cc, transparent: true, opacity: 0.5, roughness: 0.05, metalness: 0.5, side: THREE.DoubleSide, depthWrite: false });
+    [-1, 1].forEach((s) => {
+      const x = s * 0.825;
+      box(0.05, 0.54, 1.02, rust, x, 0.93, -0.06);
+      box(0.06, 0.03, 0.14, metal, x + s * 0.02, 1.08, -0.42);                           // handle
+      box(0.04, 0.035, 0.92, rust, x, 1.64, -0.12);                                      // frame top
+      box(0.04, 0.44, 0.035, rust, x, 1.42, -0.56);                                      // rear post
+      box(0.04, 0.48, 0.035, rust, x, 1.42, 0.33, -0.2);                                 // front post
+      const g = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.42), winGlass);
+      g.rotation.y = Math.PI / 2; g.position.set(x, 1.41, -0.12); g.renderOrder = 3; B.add(g); this.glass.push(g);
+      const seal = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.025, 0.02), black); seal.position.y = 0.2; g.add(seal);
+    });
+    this.windowPos = 0; this.windowTarget = 0;
+    // dashboard with two dials and the radio
+    const dc = makeCanvas(512, 96), dg = dc.getContext('2d');
+    dg.fillStyle = '#2a2420'; dg.fillRect(0, 0, 512, 96);
+    [[92, 'MPH'], [182, 'FUEL']].forEach(([cx, t]) => {
+      dg.fillStyle = '#0e0c0b'; dg.beginPath(); dg.arc(cx, 48, 38, 0, 7); dg.fill();
+      dg.strokeStyle = '#d8cfbd'; dg.lineWidth = 2; for (let i = 0; i < 9; i++) { const a = -2.4 + i * 0.6; dg.beginPath(); dg.moveTo(cx + Math.cos(a) * 28, 48 + Math.sin(a) * 28); dg.lineTo(cx + Math.cos(a) * 34, 48 + Math.sin(a) * 34); dg.stroke(); }
+      dg.fillStyle = '#d8cfbd'; dg.font = '700 13px sans-serif'; dg.textAlign = 'center'; dg.fillText(t, cx, 76);
+    });
+    const dash = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.16, 0.26), [rust, rust, rust, rust, rust, std({ map: canvasTex(dc), roughness: 0.9 })]);
+    dash.position.set(0, 1.27, 0.44); dash.castShadow = true; B.add(dash);
+    this.radioCanvas = makeCanvas(256, 64); this.radioTex = canvasTex(this.radioCanvas);
+    this.radioMat = std({ color: 0x111111, emissive: 0xffffff, emissiveMap: this.radioTex, emissiveIntensity: 1, map: this.radioTex });
+    box(0.34, 0.1, 0.05, black, -0.05, 1.26, 0.29);
+    const rface = new THREE.Mesh(new THREE.PlaneGeometry(0.31, 0.078), this.radioMat); rface.position.set(-0.05, 1.26, 0.264); rface.rotation.y = Math.PI; B.add(rface);
+    this.drawRadio(null);
+    // first-person eye point (driver's head) — the camera reads its world transform
+    this.eye = new THREE.Object3D(); this.eye.position.set(0.38, 1.68, -0.36); B.add(this.eye);
     // headlights
     this.heads = [];
     [-1, 1].forEach((s) => {
@@ -311,6 +346,22 @@ class Car {
     }
     this.steerWheel.rotation.z = this.delta * 9;
     this.tailMat.emissiveIntensity = this.brake > 0.1 ? 2.2 : (Sky.night > 0.4 ? 0.8 : 0.15);
+  }
+  drawRadio(info) {
+    const g = this.radioCanvas.getContext('2d');
+    g.fillStyle = '#0b0a08'; g.fillRect(0, 0, 256, 64);
+    if (info) {
+      g.fillStyle = '#ffb347'; g.font = '700 30px "Overpass Mono", monospace'; g.textAlign = 'left'; g.textBaseline = 'middle';
+      g.fillText(info.freq, 12, 24); g.font = '600 16px "Overpass", sans-serif'; g.fillStyle = '#ffcf8a'; g.fillText(info.call + ' · ' + info.genre, 12, 50);
+    } else { g.fillStyle = '#3a2a18'; g.font = '700 26px "Overpass Mono", monospace'; g.textBaseline = 'middle'; g.fillText('-- OFF --', 40, 32); }
+    this.radioTex.needsUpdate = true;
+  }
+  setFirstPerson(fp) { if (this._fp === fp) return; this._fp = fp; this.headParts.forEach((m) => (m.visible = !fp)); this.bodyParts.forEach((m) => (m.visible = !fp)); }
+  animateWindows(dt) {
+    const prev = this.windowPos;
+    this.windowPos += clamp(this.windowTarget - this.windowPos, -dt * 0.55, dt * 0.55);
+    for (const g of this.glass) g.position.y = 1.41 - (1 - this.windowPos) * 0.44;
+    return this.windowPos !== prev;
   }
   setLights(n) {
     this.heads.forEach((L) => (L.intensity = n > 0.25 ? 3.2 * n : 0));

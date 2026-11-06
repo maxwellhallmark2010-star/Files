@@ -15,7 +15,22 @@ const Game = {
     this.car.onReverse = () => { if (this.state === 'drive') HUD.toast('Reverse: hold BRAKE to back up, GAS to go forward', 'info', 2200); };
     this.colliders = [];
     this.camPos = new THREE.Vector3(); this.camLook = new THREE.Vector3(); this.camYaw = 0;
-    window.addEventListener('dv-camera', () => { Settings.camera = Settings.camera === 'near' ? 'far' : 'near'; saveSettings(); HUD.syncSettings(); HUD.toast(Settings.camera === 'near' ? 'Close chase cam' : 'Far chase cam'); });
+    window.addEventListener('dv-camera', () => {
+      const order = ['near', 'far', 'first'];
+      Settings.camera = order[(order.indexOf(Settings.camera) + 1) % order.length]; saveSettings(); HUD.syncSettings();
+      HUD.toast({ near: 'Close chase cam', far: 'Far chase cam', first: 'First person: drag the screen to look around' }[Settings.camera]);
+    });
+    window.addEventListener('dv-radio', () => this.toggleRadio());
+    window.addEventListener('dv-tune', () => this.tuneRadio());
+    window.addEventListener('dv-window', () => this.toggleWindows());
+    // first-person look-around: drag on the open view, springs back on release
+    this.look = 0; this.lookPitch = 0; this.looking = false;
+    const cv = document.getElementById('c'); let lid = null, lx = 0, ly = 0;
+    cv.addEventListener('pointerdown', (e) => { if (Settings.camera !== 'first' || this.state !== 'drive' || lid !== null) return; lid = e.pointerId; lx = e.clientX; ly = e.clientY; this.looking = true; try { cv.setPointerCapture(lid); } catch (err) { /* ignore */ } });
+    cv.addEventListener('pointermove', (e) => { if (e.pointerId !== lid) return; this.look = clamp(this.look - (e.clientX - lx) * 0.006, -1.9, 1.9); this.lookPitch = clamp(this.lookPitch - (e.clientY - ly) * 0.004, -0.5, 0.35); lx = e.clientX; ly = e.clientY; });
+    const lend = (e) => { if (e.pointerId === lid) { lid = null; this.looking = false; } };
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((ev) => cv.addEventListener(ev, lend));
+    this.fpQ = new THREE.Quaternion(); this.fpE = new THREE.Euler(0, 0, 0, 'YXZ'); this.fpTmp = new THREE.Quaternion();
     this.applySky();
     this.parkAtStart();
     World.update(this.car.z, 99);
@@ -41,6 +56,22 @@ const Game = {
   resume() { this.state = 'drive'; HUD.show('game'); Controls.reset(); },
   toMenu() { this.state = 'menu'; this.saveBest(); World.reset(); this.parkAtStart(); World.update(this.car.z, 99); HUD.refreshBest(); HUD.show('menu'); },
   saveBest() { if (this.run > Store.get('bestRun', 0)) Store.set('bestRun', this.run); },
+
+  // ── cabin: radio & windows ──────────────────────────────────────────────
+  toggleRadio() {
+    Sound.radioOn(!Sound.radioIsOn);
+    const info = Sound.radioInfo(); this.car.drawRadio(info);
+    HUD.toast(info ? `Radio on · ${info.freq} ${info.call} · ${info.genre}` : 'Radio off');
+  },
+  tuneRadio() {
+    if (!Sound.radioIsOn) { this.toggleRadio(); return; }
+    Sound.radioNext(); const info = Sound.radioInfo(); this.car.drawRadio(info);
+    HUD.toast(`${info.freq} ${info.call} · ${info.genre}`);
+  },
+  toggleWindows() {
+    const c = this.car; c.windowTarget = c.windowTarget > 0.5 ? 0 : 1;
+    HUD.toast(c.windowTarget ? 'Rolling the windows up' : 'Rolling the windows down');
+  },
 
   // ── station actions ───────────────────────────────────────────────────────
   toggleFuel() {
@@ -142,7 +173,9 @@ const Game = {
     Sky.update(this.hour, this.camera.position, _v3.set(car.x, car.y, car.z), App.shadows);
     car.setLights(Sky.night); World.updateLights(Sky.night, car.z);
     Dust.uni.light.value = lerp(1, 0.25, Sky.night);
-    Sound.update({ rpm: car.rpm, throttle: car.throttle, engineOn: car.engineOn && this.state !== 'menu' ? car.engineOn : car.engineOn, speed: car.u, slip: car.slip, onAsphalt: car.surf === 'asphalt' || car.surf === 'lot', fueling: this.fueling });
+    const moving = car.animateWindows(dt); Sound.motor(moving);
+    car.setFirstPerson(Settings.camera === 'first' && this.state !== 'menu');
+    Sound.update({ windowsUp: car.windowPos > 0.75, rpm: car.rpm, throttle: car.throttle, engineOn: car.engineOn && this.state !== 'menu' ? car.engineOn : car.engineOn, speed: car.u, slip: car.slip, onAsphalt: car.surf === 'asphalt' || car.surf === 'lot', fueling: this.fueling });
     HUD.update(this);
   },
   emitDust(dt) {
@@ -167,6 +200,22 @@ const Game = {
       this.camPos.lerp(_v1, 1 - Math.exp(-2 * dt));
       cam.position.copy(this.camPos); cam.lookAt(car.x, car.y + 1, car.z);
       cam.fov = 55; cam.updateProjectionMatrix();
+      return;
+    }
+    if (Settings.camera === 'first') {
+      // driver's eye: rides the sprung body, so you feel every dip and lean
+      car.eye.getWorldPosition(cam.position);
+      if (!this.looking) { this.look *= Math.exp(-3 * dt); this.lookPitch *= Math.exp(-3 * dt); }
+      car.body.getWorldQuaternion(this.fpQ);
+      this.fpE.set(-0.1 + this.lookPitch, Math.PI + this.look, 0);
+      cam.quaternion.copy(this.fpQ).multiply(this.fpTmp.setFromEuler(this.fpE));
+      const off = !(car.surf === 'asphalt' || car.surf === 'lot');
+      const sh = this.shake * 0.5 + (off ? Math.abs(car.u) * 0.0008 : 0);
+      if (sh > 0) { cam.position.y += rand(-sh, sh); }
+      this.shake = Math.max(0, this.shake - dt * 1.5);
+      this.camPos.copy(cam.position); this.camYaw = car.psi;
+      const fov = (cam.aspect < 1 ? 80 : 70) + clamp(Math.abs(car.u) * 0.15, 0, 7);
+      if (Math.abs(cam.fov - fov) > 0.05) { cam.fov = damp(cam.fov, fov, 3, dt); cam.updateProjectionMatrix(); }
       return;
     }
     const far = Settings.camera === 'far', portrait = cam.aspect < 1;

@@ -7,7 +7,7 @@ const SETTINGS_SCHEMA = [
   { key: 'units', label: 'Speed', options: [['mph', 'mph'], ['kmh', 'km/h']] },
   { key: 'steerRange', label: 'Wheel turn', options: [[180, '½ turn'], [270, '¾ turn'], [360, '1 turn'], [450, '1¼ turns']] },
   { key: 'assist', label: 'Steering at speed', options: [[true, 'Speed-sensitive'], [false, 'Raw']] },
-  { key: 'camera', label: 'Camera', options: [['near', 'Close chase'], ['far', 'Far chase']] },
+  { key: 'camera', label: 'Camera', options: [['near', 'Close chase'], ['far', 'Far chase'], ['first', 'First person']] },
   { key: 'sky', label: 'Time of day', options: [['cycle', 'Day/night'], ['midday', 'Noon'], ['sunset', 'Sunset'], ['night', 'Night']] },
   { key: 'graphics', label: 'Graphics', options: [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']] },
   { key: 'sound', label: 'Sound', options: [[true, 'On'], [false, 'Off']] },
@@ -45,6 +45,8 @@ const HUD = {
     $('pSetBtn').addEventListener('click', () => { Sound.ui(); this.openSettings('pause'); });
     $('quitBtn').addEventListener('click', () => { Sound.ui(); Game.toMenu(); });
     $('camBtn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('dv-camera')));
+    const ev = (id, name) => $(id).addEventListener('pointerdown', (e) => { e.preventDefault(); Sound.unlock(); window.dispatchEvent(new CustomEvent(name)); });
+    ev('radioBtn', 'dv-radio'); ev('tuneBtn', 'dv-tune'); ev('winBtn', 'dv-window');
     const tap = (el, fn) => el.addEventListener('pointerdown', (e) => { e.preventDefault(); Sound.unlock(); fn(); });
     tap(this.el.actFuel, () => Game.toggleFuel());
     tap(this.el.actWater, () => Game.grabWater());
@@ -144,6 +146,13 @@ const HUD = {
     this.set('temp', E.temp, `${Math.round(G.tempF)}°F`);
     const ft = elevationFt(car.z);
     this.set('elev', E.elev, ft < 0 ? `${-ft} ft below sea level` : `${ft} ft`);
+    // cabin buttons
+    const ri = Sound.radioInfo();
+    this.set('radio', this.$('radioLbl'), ri ? ri.freq : 'OFF');
+    this.set('radioOn', this.$('radioBtn'), ri ? 'cab on' : 'cab', 'className');
+    const up = car.windowTarget > 0.5;
+    this.set('win', this.$('winLbl'), up ? 'UP' : 'DOWN');
+    this.set('winOn', this.$('winBtn'), up ? 'cab on' : 'cab', 'className');
     // context buttons
     this.vis('aF', E.actFuel, G.canFuel || G.fueling);
     this.set('aFt', E.actFuel.firstChild, G.fueling ? 'STOP PUMP' : (G.fuel > 0.985 ? 'TANK FULL' : 'FILL UP'));

@@ -61,6 +61,9 @@ const Controls = {
       if (e.code === 'KeyH') Sound.horn(true);
       if (e.code === 'Escape' || e.code === 'KeyP') window.dispatchEvent(new CustomEvent('dv-pause'));
       if (e.code === 'KeyC') window.dispatchEvent(new CustomEvent('dv-camera'));
+      if (e.code === 'KeyR' && !e.repeat) window.dispatchEvent(new CustomEvent('dv-radio'));
+      if (e.code === 'KeyT' && !e.repeat) window.dispatchEvent(new CustomEvent('dv-tune'));
+      if (e.code === 'KeyV' && !e.repeat) window.dispatchEvent(new CustomEvent('dv-window'));
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => { this.keys.delete(e.code); if (e.code === 'KeyH') Sound.horn(false); });

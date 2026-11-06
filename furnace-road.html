@@ -138,6 +138,15 @@ body.portrait #menu { align-items: flex-end; background: linear-gradient(180deg,
 #fade { position: fixed; inset: 0; z-index: 30; background: #000; opacity: 0; pointer-events: none; transition: opacity .8s; }
 #fade.on { opacity: 1; }
 
+#cabin { position: absolute; right: max(12px, var(--sr)); top: calc(max(8px, var(--st)) + 52px); display: flex; flex-direction: column; gap: 5px; pointer-events: none; }
+.cab { pointer-events: auto; touch-action: none; display: flex; align-items: center; gap: 6px; height: 36px; min-width: 96px; padding: 0 9px 0 7px; border-radius: 4px; border: 1px solid var(--line); background: var(--slab); text-align: left; }
+.cab svg { width: 18px; height: 18px; fill: var(--bone-dim); flex: none; }
+.cab span { display: flex; flex-direction: column; line-height: 1.05; }
+.cab b { font-weight: 900; font-size: 10px; letter-spacing: 0.1em; }
+.cab i { font-style: normal; font-family: var(--mono); font-size: 10px; color: var(--bone-dim); }
+.cab.on { border-color: var(--warn); }
+.cab.on svg { fill: var(--warn); } .cab.on i { color: var(--warn); }
+body.portrait #cabin { top: calc(max(8px, var(--st)) + 184px); }
 /* ── wheel & pedals ── */
 #drive { position: absolute; inset: 0; pointer-events: none; }
 body:not(.in-game) #drive, body:not(.in-game) #actions { display: none; }
@@ -195,6 +204,12 @@ body.portrait #actions { bottom: calc(max(8px, var(--sb)) + 150px); flex-directi
       <div id="infoTxt" class="chip"><div id="temp">112°F</div><div id="clock">4:12 PM</div><div id="elev">–</div></div>
       <button id="camBtn" type="button" aria-label="Switch camera"><svg viewBox="0 0 20 20"><path d="M2 6h3l2-2h6l2 2h3v10H2V6zm8 2.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/></svg></button>
     </div>
+  </div>
+
+  <div id="cabin">
+    <button type="button" class="cab" id="radioBtn" aria-label="Radio on or off"><svg viewBox="0 0 24 24"><path d="M3 8h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zm2.5-1.2L17 3l.6 1.8L9.3 8H5.5zM7 11a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm6 1v1.5h6V12h-6zm0 3v1.5h6V15h-6z"/></svg><span><b>RADIO</b><i id="radioLbl">OFF</i></span></button>
+    <button type="button" class="cab" id="tuneBtn" aria-label="Next station"><svg viewBox="0 0 24 24"><path d="M4 6l8 6-8 6V6zm8 0l8 6-8 6V6z"/></svg><span><b>TUNE</b><i>next</i></span></button>
+    <button type="button" class="cab" id="winBtn" aria-label="Roll windows up or down"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4V4zm2 2v6h12V6H6zm6 7.5l-4 4h8l-4-4z"/></svg><span><b>WINDOWS</b><i id="winLbl">DOWN</i></span></button>
   </div>
 
   <div id="cluster">
@@ -301,9 +316,12 @@ body.portrait #actions { bottom: calc(max(8px, var(--sb)) + 150px); flex-directi
       <b>Brake</b><span>Hold the wide pedal. Keep holding at a standstill and it drops into reverse; press gas to go forward again.</span>
       <b>Fuel</b><span>The tank runs about four highway miles. Blue GAS signs warn you half a mile out. Pull up beside a pump under the canopy, stop, and tap FILL UP.</span>
       <b>Water</b><span>The heat dries you out, faster in the afternoon. Stop by the water table at any station and tap GRAB WATER (4 bottles max), then tap DRINK when the drop runs low.</span>
+      <b>Radio</b><span>Tap RADIO to switch it on or off, TUNE for the next station: country twang, a synth night drive, or AM blues.</span>
+      <b>Windows</b><span>Tap WINDOWS to roll them up (quieter, the wind dies down) or down.</span>
+      <b>Camera</b><span>The camera button cycles close chase, far chase and first person. In first person, drag the open screen to look around.</span>
       <b>Off-road</b><span>Sand and gravel have less grip and more drag. Slow down before the shoulder or the rear end steps out.</span>
     </div>
-    <p class="note">Run dry and you'll coast to a stop; a tow truck takes you to the next station. Keyboard: W/S gas & brake, A/D steer, H horn, C camera, P pause.</p>
+    <p class="note">Run dry and you'll coast to a stop; a tow truck takes you to the next station. Keyboard: W/S gas & brake, A/D steer, H horn, C camera, R radio, T tune, V windows, P pause.</p>
     <div class="row"><button type="button" class="btn-solid" id="howBack">Got it</button></div>
   </div>
 </div>
@@ -442,7 +460,94 @@ const Sound = (() => {
     s.connect(fl); fl.connect(g); g.connect(master); s.start(t0, Math.random()); s.stop(t0 + dur + 0.05);
   }
 
+  // ── the radio: three procedurally played stations through a dash speaker ──
+  const STATIONS = [
+    { freq: '98.3', call: 'KDVL', genre: 'Desert Twang', bpm: 96, swing: 0 },
+    { freq: '104.7', call: 'KZRO', genre: 'Night Drive', bpm: 104, swing: 0 },
+    { freq: 'AM 1450', call: 'KRTL', genre: 'Rattlesnake Blues', bpm: 76, swing: 0.33, am: true },
+  ];
+  const R = { on: false, idx: 0, step: 0, nextT: 0, timer: null, bus: null, tone: null, crackle: null, phrase: [] };
+  const mf = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  function radioBuild() {
+    R.bus = ctx.createGain(); R.bus.gain.value = 0;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 110;
+    R.tone = ctx.createBiquadFilter(); R.tone.type = 'lowpass'; R.tone.frequency.value = 6500;
+    R.bus.connect(hp); hp.connect(R.tone); R.tone.connect(master);
+    const n = noiseSrc(), nf = ctx.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 2500; nf.Q.value = 0.6;
+    R.crackle = ctx.createGain(); R.crackle.gain.value = 0; n.connect(nf); nf.connect(R.crackle); R.crackle.connect(R.bus);
+  }
+  function v(type, f, t, dur, gain, { cut = 3000, cutEnd = null, attack = 0.004, detune = 0, q = 1 } = {}) {
+    const o = ctx.createOscillator(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); o.detune.value = detune;
+    fl.type = 'lowpass'; fl.frequency.setValueAtTime(cut, t); fl.Q.value = q; if (cutEnd) fl.frequency.exponentialRampToValueAtTime(cutEnd, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(fl); fl.connect(g); g.connect(R.bus); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function hit(t, dur, gain, type, f, q = 1) {
+    const s = ctx.createBufferSource(); s.buffer = noiseBuf; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(fl); fl.connect(g); g.connect(R.bus); s.start(t, Math.random()); s.stop(t + dur + 0.05);
+  }
+  function kick(t, g = 0.6) { const o = ctx.createOscillator(), a = ctx.createGain(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.18); a.gain.setValueAtTime(g, t); a.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.connect(a); a.connect(R.bus); o.start(t); o.stop(t + 0.35); }
+  const pluck = (m, t, d, g) => { v('sawtooth', mf(m), t, d, g, { cut: 3200, cutEnd: 500 }); v('triangle', mf(m), t, d * 1.2, g * 0.6, { cut: 2000, detune: 7 }); };
+  const PENT = { twang: [55, 57, 59, 62, 64, 67, 69, 71, 74], drive: [57, 60, 62, 64, 67, 69, 72, 74, 76], blues: [52, 55, 57, 58, 59, 62, 64, 67] };
+  function newPhrase(scale, len, density) { const p = []; let i = Math.floor(scale.length / 2); for (let k = 0; k < len; k++) { if (Math.random() < density) { i = clamp(i + Math.round(rand(-2.4, 2.4)), 0, scale.length - 1); p.push(scale[i]); } else p.push(null); } return p; }
+  function playStep(st, s, t, sd) {
+    const bar = Math.floor(s / 16), k = s % 16;
+    if (st.genre === 'Desert Twang') {                     // G C D G, boom-chick, brushes, twangy lead
+      const roots = [43, 48, 50, 43][bar % 4], ch = [[55, 59, 62], [60, 64, 67], [62, 66, 69], [55, 59, 62]][bar % 4];
+      if (k === 0 || k === 8) { v('triangle', mf(k === 0 ? roots : roots + 7), t, sd * 3.5, 0.22, { cut: 700 }); kick(t, 0.25); }
+      if (k === 4 || k === 12) { ch.forEach((m, i) => pluck(m, t + i * 0.012, sd * 2.5, 0.05)); hit(t, 0.12, 0.08, 'bandpass', 3000, 0.7); }
+      if (k % 2 === 1) hit(t, 0.05, 0.025, 'highpass', 6000);
+      if (k === 0 && bar % 4 === 0) R.phrase = newPhrase(PENT.twang, 64, 0.42);
+      const n = R.phrase[(bar % 4) * 16 + k]; if (n && k % 2 === 0) { pluck(n + 12, t, sd * 2.2, 0.07); v('sine', mf(n + 12) * 1.003, t + 0.01, sd * 2, 0.03); }
+    } else if (st.genre === 'Night Drive') {               // Am F C G, four-on-the-floor, arps, pads
+      const chords = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]], ch = chords[bar % 4];
+      if (k % 4 === 0) kick(t, 0.5);
+      if (k === 4 || k === 12) hit(t, 0.16, 0.14, 'bandpass', 1500, 0.8);
+      if (k % 4 === 2) hit(t, 0.04, 0.05, 'highpass', 7000);
+      if (k % 2 === 0) v('sawtooth', mf(ch[0] - 24 + (k % 4 === 2 ? 12 : 0)), t, sd * 1.6, 0.12, { cut: 600, cutEnd: 200 });
+      v('square', mf(ch[k % 3] + 12 + (k % 8 >= 6 ? 12 : 0)), t, sd * 0.9, 0.03, { cut: 2200, cutEnd: 700 });
+      if (k === 0) ch.forEach((m) => { v('sawtooth', mf(m), t, sd * 16, 0.022, { cut: 1100, attack: 0.4, detune: -8 }); v('sawtooth', mf(m), t, sd * 16, 0.022, { cut: 1100, attack: 0.4, detune: 8 }); });
+      if (k === 0 && bar % 4 === 0) R.phrase = newPhrase(PENT.drive, 64, 0.22);
+      const n = R.phrase[(bar % 4) * 16 + k]; if (n) v('triangle', mf(n + 12), t, sd * 3, 0.05, { cut: 3000, attack: 0.02 });
+    } else {                                                // 12-bar shuffle in E, organ + walking bass, AM band
+      const prog = [0, 0, 0, 0, 5, 5, 0, 0, 7, 5, 0, 7], r = 40 + prog[bar % 12];
+      if (k % 4 === 0) { const walk = [0, 4, 7, 9][(k / 4) | 0]; v('triangle', mf(r + walk), t, sd * 3.5, 0.24, { cut: 600 }); }
+      if (k % 4 === 0 || k % 4 === 3) { [r + 24, r + 28, r + 31, r + 34].forEach((m) => { v('sine', mf(m), t, sd * 1.8, 0.03); v('sine', mf(m) * 2, t, sd * 1.8, 0.012); }); }
+      if (k === 4 || k === 12) hit(t, 0.14, 0.09, 'bandpass', 2500, 0.7);
+      if (k % 4 === 0) hit(t, 0.06, 0.03, 'highpass', 5000);
+      if (k === 0 && bar % 4 === 0) R.phrase = newPhrase(PENT.blues.map((m) => m + 12), 64, 0.3);
+      const n = R.phrase[(bar % 4) * 16 + k]; if (n && k % 2 === 0) { v('sawtooth', mf(n), t, sd * 2.5, 0.045, { cut: 1600, cutEnd: 700 }); }
+    }
+  }
+  function tick() {
+    if (!R.on || !ctx) return;
+    const st = STATIONS[R.idx], sd = 60 / st.bpm / 4;
+    while (R.nextT < ctx.currentTime + 0.15) {
+      const swing = st.swing && R.step % 2 === 1 ? sd * st.swing : 0;
+      playStep(st, R.step, R.nextT + swing, sd);
+      R.nextT += sd; R.step++;
+    }
+  }
+  function applyRadio() {
+    if (!ctx) return;
+    if (!R.bus) radioBuild();
+    const st = STATIONS[R.idx];
+    set(R.bus.gain, R.on ? 0.55 : 0, 0.15);
+    set(R.tone.frequency, st.am ? 2600 : 6500, 0.05);
+    set(R.crackle.gain, R.on && st.am ? 0.035 : 0, 0.1);
+    if (R.on && !R.timer) { R.nextT = ctx.currentTime + 0.35; R.step = 0; R.timer = setInterval(tick, 30); }
+    if (!R.on && R.timer) { clearInterval(R.timer); R.timer = null; }
+  }
+  function tuneStatic() { burst({ dur: 0.45, gain: 0.18, type: 'bandpass', f: 2200, q: 0.5 }); }
+
   return {
+    radioOn(on) { unlock(); R.on = on; applyRadio(); if (on) tuneStatic(); },
+    radioNext() { unlock(); R.idx = (R.idx + 1) % STATIONS.length; if (R.on) { tuneStatic(); R.nextT = ctx.currentTime + 0.4; R.step = 0; } applyRadio(); },
+    radioInfo() { return R.on ? STATIONS[R.idx] : null; },
+    get radioIsOn() { return R.on; },
+    motor(on) { if (!ctx) return; if (!L.motor) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 95; const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500; const g = ctx.createGain(); g.gain.value = 0; o.connect(f); f.connect(g); g.connect(master); o.start(); L.motor = g; } set(L.motor.gain, on ? 0.05 : 0, 0.05); },
     unlock,
     setEnabled() { if (master) set(master.gain, Settings.sound ? level : 0, 0.1); },
     setLevel(v) { level = v; if (master) set(master.gain, Settings.sound ? level : 0, 0.2); },
@@ -459,9 +564,10 @@ const Sound = (() => {
       set(L.ig.gain, run * s.throttle * 0.35, 0.08); set(L.ib.frequency, 500 + s.rpm * 0.25, 0.08);
       set(L.skid.g.gain, clamp((s.slip - 0.12) * 0.9, 0, 0.32) * (s.onAsphalt ? 1 : 0.25), 0.05);
       const v = Math.abs(s.speed);
-      set(L.wind.g.gain, clamp(v * v / 2200, 0, 0.32), 0.2); set(L.wind.fl.frequency, 400 + v * 30, 0.2);
-      set(L.road.g.gain, clamp(v / 40, 0, 0.25) * (s.onAsphalt ? 0.6 : 1), 0.1);
-      set(L.grit.g.gain, s.onAsphalt ? 0 : clamp(v / 25, 0, 0.22), 0.1);
+      const cab = s.windowsUp ? 0.3 : 1;        // rolled-up glass cuts the wind roar
+      set(L.wind.g.gain, clamp(v * v / 2200, 0, 0.32) * cab, 0.2); set(L.wind.fl.frequency, (400 + v * 30) * (s.windowsUp ? 0.5 : 1), 0.2);
+      set(L.road.g.gain, clamp(v / 40, 0, 0.25) * (s.onAsphalt ? 0.6 : 1) * (s.windowsUp ? 0.6 : 1), 0.1);
+      set(L.grit.g.gain, s.onAsphalt ? 0 : clamp(v / 25, 0, 0.22) * (s.windowsUp ? 0.5 : 1), 0.1);
       set(L.horn.gain, hornOn ? 0.16 : 0, 0.02);
       set(L.glug.g.gain, s.fueling ? 0.18 + Math.sin(ctx.currentTime * 18) * 0.06 : 0, 0.05);
     },
@@ -1463,17 +1569,20 @@ class Car {
     const sw = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.022, 6, 20), black); this.steerWheel.add(sw);
     const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.025, 0.02), black); this.steerWheel.add(spoke);
     const spoke2 = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.19, 0.02), black); spoke2.position.y = -0.09; this.steerWheel.add(spoke2);
+    const handM = std({ color: 0x7a5236, roughness: 0.9 });
+    [Math.PI * 0.82, Math.PI * 0.18].forEach((a) => { const hnd = new THREE.Mesh(new THREE.SphereGeometry(0.042, 8, 6), handM); hnd.scale.set(1, 1.25, 0.9); hnd.position.set(Math.cos(a) * 0.19, Math.sin(a) * 0.19, 0.015); this.steerWheel.add(hnd); });
     const shirt = std({ color: 0x5f7a92 }), skin = std({ color: 0xb07a52 }), hat = std({ color: 0x8a6a44 }), jeans = std({ color: 0x2f3b52 });
     const D = new THREE.Group(); D.position.set(0.38, 1.2, -0.28); B.add(D);
     const dm = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = true; D.add(o); return o; };
-    dm(new THREE.CylinderGeometry(0.17, 0.15, 0.55, 10), shirt, 0, 0.32, 0, -0.1);
-    dm(new THREE.SphereGeometry(0.11, 12, 10), skin, 0, 0.72, 0.03);
-    dm(new THREE.CylinderGeometry(0.3, 0.3, 0.018, 18), hat, 0, 0.8, 0.03, -0.06);
-    dm(new THREE.CylinderGeometry(0.1, 0.12, 0.13, 12), hat, 0, 0.87, 0.03, -0.06);
-    dm(new THREE.BoxGeometry(0.17, 0.035, 0.03), black, 0, 0.73, 0.13);
+    this.bodyParts = [dm(new THREE.CylinderGeometry(0.17, 0.15, 0.55, 10), shirt, 0, 0.32, 0, -0.1)];
+    this.headParts = [
+      dm(new THREE.SphereGeometry(0.11, 12, 10), skin, 0, 0.72, 0.03),
+      dm(new THREE.CylinderGeometry(0.3, 0.3, 0.018, 18), hat, 0, 0.8, 0.03, -0.06),
+      dm(new THREE.CylinderGeometry(0.1, 0.12, 0.13, 12), hat, 0, 0.87, 0.03, -0.06),
+      dm(new THREE.BoxGeometry(0.17, 0.035, 0.03), black, 0, 0.73, 0.13)];
     [-1, 1].forEach((s) => {
-      dm(new THREE.CylinderGeometry(0.045, 0.04, 0.42, 8), shirt, s * 0.2, 0.42, 0.22, -1.15, 0, s * 0.15);
-      dm(new THREE.CylinderGeometry(0.06, 0.06, 0.5, 8), jeans, s * 0.1, 0.02, 0.27, -1.45);
+      this.bodyParts.push(dm(new THREE.CylinderGeometry(0.045, 0.04, 0.42, 8), shirt, s * 0.2, 0.42, 0.22, -1.15, 0, s * 0.15));
+      this.bodyParts.push(dm(new THREE.CylinderGeometry(0.06, 0.06, 0.5, 8), jeans, s * 0.1, 0.02, 0.27, -1.45));
     });
     // wheels: pivot (steer) → spin
     this.wheels = [];
@@ -1489,6 +1598,38 @@ class Car {
       for (let k = 0; k < 5; k++) { const nut = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.03, 0.03), metal); nut.position.set(0, Math.cos(k * 1.256) * 0.16, Math.sin(k * 1.256) * 0.16); spin.add(nut); }
       this.wheels.push({ pivot, spin, side: s, z, front: i < 2, y: CAR.r });
     });
+    // doors with framed roll-up windows (the glass slides down inside the door skin)
+    this.glass = [];
+    const winGlass = new THREE.MeshStandardMaterial({ color: 0x9fc0cc, transparent: true, opacity: 0.5, roughness: 0.05, metalness: 0.5, side: THREE.DoubleSide, depthWrite: false });
+    [-1, 1].forEach((s) => {
+      const x = s * 0.825;
+      box(0.05, 0.54, 1.02, rust, x, 0.93, -0.06);
+      box(0.06, 0.03, 0.14, metal, x + s * 0.02, 1.08, -0.42);                           // handle
+      box(0.04, 0.035, 0.92, rust, x, 1.64, -0.12);                                      // frame top
+      box(0.04, 0.44, 0.035, rust, x, 1.42, -0.56);                                      // rear post
+      box(0.04, 0.48, 0.035, rust, x, 1.42, 0.33, -0.2);                                 // front post
+      const g = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.42), winGlass);
+      g.rotation.y = Math.PI / 2; g.position.set(x, 1.41, -0.12); g.renderOrder = 3; B.add(g); this.glass.push(g);
+      const seal = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.025, 0.02), black); seal.position.y = 0.2; g.add(seal);
+    });
+    this.windowPos = 0; this.windowTarget = 0;
+    // dashboard with two dials and the radio
+    const dc = makeCanvas(512, 96), dg = dc.getContext('2d');
+    dg.fillStyle = '#2a2420'; dg.fillRect(0, 0, 512, 96);
+    [[92, 'MPH'], [182, 'FUEL']].forEach(([cx, t]) => {
+      dg.fillStyle = '#0e0c0b'; dg.beginPath(); dg.arc(cx, 48, 38, 0, 7); dg.fill();
+      dg.strokeStyle = '#d8cfbd'; dg.lineWidth = 2; for (let i = 0; i < 9; i++) { const a = -2.4 + i * 0.6; dg.beginPath(); dg.moveTo(cx + Math.cos(a) * 28, 48 + Math.sin(a) * 28); dg.lineTo(cx + Math.cos(a) * 34, 48 + Math.sin(a) * 34); dg.stroke(); }
+      dg.fillStyle = '#d8cfbd'; dg.font = '700 13px sans-serif'; dg.textAlign = 'center'; dg.fillText(t, cx, 76);
+    });
+    const dash = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.16, 0.26), [rust, rust, rust, rust, rust, std({ map: canvasTex(dc), roughness: 0.9 })]);
+    dash.position.set(0, 1.27, 0.44); dash.castShadow = true; B.add(dash);
+    this.radioCanvas = makeCanvas(256, 64); this.radioTex = canvasTex(this.radioCanvas);
+    this.radioMat = std({ color: 0x111111, emissive: 0xffffff, emissiveMap: this.radioTex, emissiveIntensity: 1, map: this.radioTex });
+    box(0.34, 0.1, 0.05, black, -0.05, 1.26, 0.29);
+    const rface = new THREE.Mesh(new THREE.PlaneGeometry(0.31, 0.078), this.radioMat); rface.position.set(-0.05, 1.26, 0.264); rface.rotation.y = Math.PI; B.add(rface);
+    this.drawRadio(null);
+    // first-person eye point (driver's head) — the camera reads its world transform
+    this.eye = new THREE.Object3D(); this.eye.position.set(0.38, 1.68, -0.36); B.add(this.eye);
     // headlights
     this.heads = [];
     [-1, 1].forEach((s) => {
@@ -1695,6 +1836,22 @@ class Car {
     this.steerWheel.rotation.z = this.delta * 9;
     this.tailMat.emissiveIntensity = this.brake > 0.1 ? 2.2 : (Sky.night > 0.4 ? 0.8 : 0.15);
   }
+  drawRadio(info) {
+    const g = this.radioCanvas.getContext('2d');
+    g.fillStyle = '#0b0a08'; g.fillRect(0, 0, 256, 64);
+    if (info) {
+      g.fillStyle = '#ffb347'; g.font = '700 30px "Overpass Mono", monospace'; g.textAlign = 'left'; g.textBaseline = 'middle';
+      g.fillText(info.freq, 12, 24); g.font = '600 16px "Overpass", sans-serif'; g.fillStyle = '#ffcf8a'; g.fillText(info.call + ' · ' + info.genre, 12, 50);
+    } else { g.fillStyle = '#3a2a18'; g.font = '700 26px "Overpass Mono", monospace'; g.textBaseline = 'middle'; g.fillText('-- OFF --', 40, 32); }
+    this.radioTex.needsUpdate = true;
+  }
+  setFirstPerson(fp) { if (this._fp === fp) return; this._fp = fp; this.headParts.forEach((m) => (m.visible = !fp)); this.bodyParts.forEach((m) => (m.visible = !fp)); }
+  animateWindows(dt) {
+    const prev = this.windowPos;
+    this.windowPos += clamp(this.windowTarget - this.windowPos, -dt * 0.55, dt * 0.55);
+    for (const g of this.glass) g.position.y = 1.41 - (1 - this.windowPos) * 0.44;
+    return this.windowPos !== prev;
+  }
   setLights(n) {
     this.heads.forEach((L) => (L.intensity = n > 0.25 ? 3.2 * n : 0));
     this.lampMat.emissiveIntensity = n > 0.25 ? 2.5 : 0.1;
@@ -1897,6 +2054,9 @@ const Controls = {
       if (e.code === 'KeyH') Sound.horn(true);
       if (e.code === 'Escape' || e.code === 'KeyP') window.dispatchEvent(new CustomEvent('dv-pause'));
       if (e.code === 'KeyC') window.dispatchEvent(new CustomEvent('dv-camera'));
+      if (e.code === 'KeyR' && !e.repeat) window.dispatchEvent(new CustomEvent('dv-radio'));
+      if (e.code === 'KeyT' && !e.repeat) window.dispatchEvent(new CustomEvent('dv-tune'));
+      if (e.code === 'KeyV' && !e.repeat) window.dispatchEvent(new CustomEvent('dv-window'));
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => { this.keys.delete(e.code); if (e.code === 'KeyH') Sound.horn(false); });
@@ -1934,7 +2094,7 @@ const SETTINGS_SCHEMA = [
   { key: 'units', label: 'Speed', options: [['mph', 'mph'], ['kmh', 'km/h']] },
   { key: 'steerRange', label: 'Wheel turn', options: [[180, '½ turn'], [270, '¾ turn'], [360, '1 turn'], [450, '1¼ turns']] },
   { key: 'assist', label: 'Steering at speed', options: [[true, 'Speed-sensitive'], [false, 'Raw']] },
-  { key: 'camera', label: 'Camera', options: [['near', 'Close chase'], ['far', 'Far chase']] },
+  { key: 'camera', label: 'Camera', options: [['near', 'Close chase'], ['far', 'Far chase'], ['first', 'First person']] },
   { key: 'sky', label: 'Time of day', options: [['cycle', 'Day/night'], ['midday', 'Noon'], ['sunset', 'Sunset'], ['night', 'Night']] },
   { key: 'graphics', label: 'Graphics', options: [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']] },
   { key: 'sound', label: 'Sound', options: [[true, 'On'], [false, 'Off']] },
@@ -1972,6 +2132,8 @@ const HUD = {
     $('pSetBtn').addEventListener('click', () => { Sound.ui(); this.openSettings('pause'); });
     $('quitBtn').addEventListener('click', () => { Sound.ui(); Game.toMenu(); });
     $('camBtn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('dv-camera')));
+    const ev = (id, name) => $(id).addEventListener('pointerdown', (e) => { e.preventDefault(); Sound.unlock(); window.dispatchEvent(new CustomEvent(name)); });
+    ev('radioBtn', 'dv-radio'); ev('tuneBtn', 'dv-tune'); ev('winBtn', 'dv-window');
     const tap = (el, fn) => el.addEventListener('pointerdown', (e) => { e.preventDefault(); Sound.unlock(); fn(); });
     tap(this.el.actFuel, () => Game.toggleFuel());
     tap(this.el.actWater, () => Game.grabWater());
@@ -2071,6 +2233,13 @@ const HUD = {
     this.set('temp', E.temp, `${Math.round(G.tempF)}°F`);
     const ft = elevationFt(car.z);
     this.set('elev', E.elev, ft < 0 ? `${-ft} ft below sea level` : `${ft} ft`);
+    // cabin buttons
+    const ri = Sound.radioInfo();
+    this.set('radio', this.$('radioLbl'), ri ? ri.freq : 'OFF');
+    this.set('radioOn', this.$('radioBtn'), ri ? 'cab on' : 'cab', 'className');
+    const up = car.windowTarget > 0.5;
+    this.set('win', this.$('winLbl'), up ? 'UP' : 'DOWN');
+    this.set('winOn', this.$('winBtn'), up ? 'cab on' : 'cab', 'className');
     // context buttons
     this.vis('aF', E.actFuel, G.canFuel || G.fueling);
     this.set('aFt', E.actFuel.firstChild, G.fueling ? 'STOP PUMP' : (G.fuel > 0.985 ? 'TANK FULL' : 'FILL UP'));
@@ -2101,7 +2270,22 @@ const Game = {
     this.car.onReverse = () => { if (this.state === 'drive') HUD.toast('Reverse: hold BRAKE to back up, GAS to go forward', 'info', 2200); };
     this.colliders = [];
     this.camPos = new THREE.Vector3(); this.camLook = new THREE.Vector3(); this.camYaw = 0;
-    window.addEventListener('dv-camera', () => { Settings.camera = Settings.camera === 'near' ? 'far' : 'near'; saveSettings(); HUD.syncSettings(); HUD.toast(Settings.camera === 'near' ? 'Close chase cam' : 'Far chase cam'); });
+    window.addEventListener('dv-camera', () => {
+      const order = ['near', 'far', 'first'];
+      Settings.camera = order[(order.indexOf(Settings.camera) + 1) % order.length]; saveSettings(); HUD.syncSettings();
+      HUD.toast({ near: 'Close chase cam', far: 'Far chase cam', first: 'First person: drag the screen to look around' }[Settings.camera]);
+    });
+    window.addEventListener('dv-radio', () => this.toggleRadio());
+    window.addEventListener('dv-tune', () => this.tuneRadio());
+    window.addEventListener('dv-window', () => this.toggleWindows());
+    // first-person look-around: drag on the open view, springs back on release
+    this.look = 0; this.lookPitch = 0; this.looking = false;
+    const cv = document.getElementById('c'); let lid = null, lx = 0, ly = 0;
+    cv.addEventListener('pointerdown', (e) => { if (Settings.camera !== 'first' || this.state !== 'drive' || lid !== null) return; lid = e.pointerId; lx = e.clientX; ly = e.clientY; this.looking = true; try { cv.setPointerCapture(lid); } catch (err) { /* ignore */ } });
+    cv.addEventListener('pointermove', (e) => { if (e.pointerId !== lid) return; this.look = clamp(this.look - (e.clientX - lx) * 0.006, -1.9, 1.9); this.lookPitch = clamp(this.lookPitch - (e.clientY - ly) * 0.004, -0.5, 0.35); lx = e.clientX; ly = e.clientY; });
+    const lend = (e) => { if (e.pointerId === lid) { lid = null; this.looking = false; } };
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((ev) => cv.addEventListener(ev, lend));
+    this.fpQ = new THREE.Quaternion(); this.fpE = new THREE.Euler(0, 0, 0, 'YXZ'); this.fpTmp = new THREE.Quaternion();
     this.applySky();
     this.parkAtStart();
     World.update(this.car.z, 99);
@@ -2127,6 +2311,22 @@ const Game = {
   resume() { this.state = 'drive'; HUD.show('game'); Controls.reset(); },
   toMenu() { this.state = 'menu'; this.saveBest(); World.reset(); this.parkAtStart(); World.update(this.car.z, 99); HUD.refreshBest(); HUD.show('menu'); },
   saveBest() { if (this.run > Store.get('bestRun', 0)) Store.set('bestRun', this.run); },
+
+  // ── cabin: radio & windows ──────────────────────────────────────────────
+  toggleRadio() {
+    Sound.radioOn(!Sound.radioIsOn);
+    const info = Sound.radioInfo(); this.car.drawRadio(info);
+    HUD.toast(info ? `Radio on · ${info.freq} ${info.call} · ${info.genre}` : 'Radio off');
+  },
+  tuneRadio() {
+    if (!Sound.radioIsOn) { this.toggleRadio(); return; }
+    Sound.radioNext(); const info = Sound.radioInfo(); this.car.drawRadio(info);
+    HUD.toast(`${info.freq} ${info.call} · ${info.genre}`);
+  },
+  toggleWindows() {
+    const c = this.car; c.windowTarget = c.windowTarget > 0.5 ? 0 : 1;
+    HUD.toast(c.windowTarget ? 'Rolling the windows up' : 'Rolling the windows down');
+  },
 
   // ── station actions ───────────────────────────────────────────────────────
   toggleFuel() {
@@ -2228,7 +2428,9 @@ const Game = {
     Sky.update(this.hour, this.camera.position, _v3.set(car.x, car.y, car.z), App.shadows);
     car.setLights(Sky.night); World.updateLights(Sky.night, car.z);
     Dust.uni.light.value = lerp(1, 0.25, Sky.night);
-    Sound.update({ rpm: car.rpm, throttle: car.throttle, engineOn: car.engineOn && this.state !== 'menu' ? car.engineOn : car.engineOn, speed: car.u, slip: car.slip, onAsphalt: car.surf === 'asphalt' || car.surf === 'lot', fueling: this.fueling });
+    const moving = car.animateWindows(dt); Sound.motor(moving);
+    car.setFirstPerson(Settings.camera === 'first' && this.state !== 'menu');
+    Sound.update({ windowsUp: car.windowPos > 0.75, rpm: car.rpm, throttle: car.throttle, engineOn: car.engineOn && this.state !== 'menu' ? car.engineOn : car.engineOn, speed: car.u, slip: car.slip, onAsphalt: car.surf === 'asphalt' || car.surf === 'lot', fueling: this.fueling });
     HUD.update(this);
   },
   emitDust(dt) {
@@ -2253,6 +2455,22 @@ const Game = {
       this.camPos.lerp(_v1, 1 - Math.exp(-2 * dt));
       cam.position.copy(this.camPos); cam.lookAt(car.x, car.y + 1, car.z);
       cam.fov = 55; cam.updateProjectionMatrix();
+      return;
+    }
+    if (Settings.camera === 'first') {
+      // driver's eye: rides the sprung body, so you feel every dip and lean
+      car.eye.getWorldPosition(cam.position);
+      if (!this.looking) { this.look *= Math.exp(-3 * dt); this.lookPitch *= Math.exp(-3 * dt); }
+      car.body.getWorldQuaternion(this.fpQ);
+      this.fpE.set(-0.1 + this.lookPitch, Math.PI + this.look, 0);
+      cam.quaternion.copy(this.fpQ).multiply(this.fpTmp.setFromEuler(this.fpE));
+      const off = !(car.surf === 'asphalt' || car.surf === 'lot');
+      const sh = this.shake * 0.5 + (off ? Math.abs(car.u) * 0.0008 : 0);
+      if (sh > 0) { cam.position.y += rand(-sh, sh); }
+      this.shake = Math.max(0, this.shake - dt * 1.5);
+      this.camPos.copy(cam.position); this.camYaw = car.psi;
+      const fov = (cam.aspect < 1 ? 80 : 70) + clamp(Math.abs(car.u) * 0.15, 0, 7);
+      if (Math.abs(cam.fov - fov) > 0.05) { cam.fov = damp(cam.fov, fov, 3, dt); cam.updateProjectionMatrix(); }
       return;
     }
     const far = Settings.camera === 'far', portrait = cam.aspect < 1;

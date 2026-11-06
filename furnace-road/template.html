@@ -138,6 +138,15 @@ body.portrait #menu { align-items: flex-end; background: linear-gradient(180deg,
 #fade { position: fixed; inset: 0; z-index: 30; background: #000; opacity: 0; pointer-events: none; transition: opacity .8s; }
 #fade.on { opacity: 1; }
 
+#cabin { position: absolute; right: max(12px, var(--sr)); top: calc(max(8px, var(--st)) + 52px); display: flex; flex-direction: column; gap: 5px; pointer-events: none; }
+.cab { pointer-events: auto; touch-action: none; display: flex; align-items: center; gap: 6px; height: 36px; min-width: 96px; padding: 0 9px 0 7px; border-radius: 4px; border: 1px solid var(--line); background: var(--slab); text-align: left; }
+.cab svg { width: 18px; height: 18px; fill: var(--bone-dim); flex: none; }
+.cab span { display: flex; flex-direction: column; line-height: 1.05; }
+.cab b { font-weight: 900; font-size: 10px; letter-spacing: 0.1em; }
+.cab i { font-style: normal; font-family: var(--mono); font-size: 10px; color: var(--bone-dim); }
+.cab.on { border-color: var(--warn); }
+.cab.on svg { fill: var(--warn); } .cab.on i { color: var(--warn); }
+body.portrait #cabin { top: calc(max(8px, var(--st)) + 184px); }
 /* ── wheel & pedals ── */
 #drive { position: absolute; inset: 0; pointer-events: none; }
 body:not(.in-game) #drive, body:not(.in-game) #actions { display: none; }
@@ -195,6 +204,12 @@ body.portrait #actions { bottom: calc(max(8px, var(--sb)) + 150px); flex-directi
       <div id="infoTxt" class="chip"><div id="temp">112°F</div><div id="clock">4:12 PM</div><div id="elev">–</div></div>
       <button id="camBtn" type="button" aria-label="Switch camera"><svg viewBox="0 0 20 20"><path d="M2 6h3l2-2h6l2 2h3v10H2V6zm8 2.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/></svg></button>
     </div>
+  </div>
+
+  <div id="cabin">
+    <button type="button" class="cab" id="radioBtn" aria-label="Radio on or off"><svg viewBox="0 0 24 24"><path d="M3 8h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zm2.5-1.2L17 3l.6 1.8L9.3 8H5.5zM7 11a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm6 1v1.5h6V12h-6zm0 3v1.5h6V15h-6z"/></svg><span><b>RADIO</b><i id="radioLbl">OFF</i></span></button>
+    <button type="button" class="cab" id="tuneBtn" aria-label="Next station"><svg viewBox="0 0 24 24"><path d="M4 6l8 6-8 6V6zm8 0l8 6-8 6V6z"/></svg><span><b>TUNE</b><i>next</i></span></button>
+    <button type="button" class="cab" id="winBtn" aria-label="Roll windows up or down"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4V4zm2 2v6h12V6H6zm6 7.5l-4 4h8l-4-4z"/></svg><span><b>WINDOWS</b><i id="winLbl">DOWN</i></span></button>
   </div>
 
   <div id="cluster">
@@ -301,9 +316,12 @@ body.portrait #actions { bottom: calc(max(8px, var(--sb)) + 150px); flex-directi
       <b>Brake</b><span>Hold the wide pedal. Keep holding at a standstill and it drops into reverse; press gas to go forward again.</span>
       <b>Fuel</b><span>The tank runs about four highway miles. Blue GAS signs warn you half a mile out. Pull up beside a pump under the canopy, stop, and tap FILL UP.</span>
       <b>Water</b><span>The heat dries you out, faster in the afternoon. Stop by the water table at any station and tap GRAB WATER (4 bottles max), then tap DRINK when the drop runs low.</span>
+      <b>Radio</b><span>Tap RADIO to switch it on or off, TUNE for the next station: country twang, a synth night drive, or AM blues.</span>
+      <b>Windows</b><span>Tap WINDOWS to roll them up (quieter, the wind dies down) or down.</span>
+      <b>Camera</b><span>The camera button cycles close chase, far chase and first person. In first person, drag the open screen to look around.</span>
       <b>Off-road</b><span>Sand and gravel have less grip and more drag. Slow down before the shoulder or the rear end steps out.</span>
     </div>
-    <p class="note">Run dry and you'll coast to a stop; a tow truck takes you to the next station. Keyboard: W/S gas & brake, A/D steer, H horn, C camera, P pause.</p>
+    <p class="note">Run dry and you'll coast to a stop; a tow truck takes you to the next station. Keyboard: W/S gas & brake, A/D steer, H horn, C camera, R radio, T tune, V windows, P pause.</p>
     <div class="row"><button type="button" class="btn-solid" id="howBack">Got it</button></div>
   </div>
 </div>
