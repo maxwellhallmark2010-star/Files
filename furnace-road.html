@@ -78,56 +78,56 @@ body.portrait #menu { align-items: flex-end; background: linear-gradient(180deg,
 #hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
 #top { position: absolute; top: max(8px, var(--st)); left: max(12px, var(--sl)); right: max(12px, var(--sr)); display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 #leftTop { display: flex; gap: 8px; align-items: flex-start; }
-.chip { background: var(--slab); border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; }
-#pauseBtn, #camBtn { pointer-events: auto; width: 44px; height: 44px; border-radius: 4px; border: 1px solid var(--line); background: var(--slab); display: grid; place-items: center; padding: 0; flex: none; }
+.chip { background: var(--slab); border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; }
+#pauseBtn, #camBtn { pointer-events: auto; width: 38px; height: 38px; border-radius: 4px; border: 1px solid var(--line); background: var(--slab); display: grid; place-items: center; padding: 0; flex: none; }
 #pauseBtn svg, #camBtn svg { width: 20px; height: 20px; fill: var(--bone); }
-#nextGas { display: flex; align-items: center; gap: 10px; background: var(--sign); border: 2px solid #e9eef2; border-radius: 5px; padding: 4px 12px 4px 8px; color: #f2f4f2; }
-#nextGas svg { width: 22px; height: 22px; fill: #f2f4f2; flex: none; }
-#nextGas .lab { font-weight: 800; font-size: 11px; letter-spacing: 0.12em; line-height: 1; }
-#nextGasVal { font-weight: 900; font-size: 22px; line-height: 1; font-variant-numeric: tabular-nums; }
+#nextGas { display: flex; align-items: center; gap: 7px; background: var(--sign); border: 2px solid #e9eef2; border-radius: 5px; padding: 3px 9px 3px 6px; color: #f2f4f2; }
+#nextGas svg { width: 17px; height: 17px; fill: #f2f4f2; flex: none; }
+#nextGas .lab { font-weight: 800; font-size: 9px; letter-spacing: 0.12em; line-height: 1; }
+#nextGasVal { font-weight: 900; font-size: 17px; line-height: 1; font-variant-numeric: tabular-nums; }
 #nextGasDir { font-weight: 600; font-size: 11px; opacity: 0.85; }
 #centerTop { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
-#trip { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; }
+#trip { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; }
 #info { display: flex; gap: 8px; align-items: flex-start; }
-#infoTxt { text-align: right; font-family: var(--mono); font-size: 12px; line-height: 1.35; }
-#temp { color: var(--warn); font-weight: 700; font-size: 15px; }
+#infoTxt { text-align: right; font-family: var(--mono); font-size: 10px; line-height: 1.3; }
+#temp { color: var(--warn); font-weight: 700; font-size: 13px; }
 
-#cluster { position: absolute; left: 50%; top: max(6px, var(--st)); transform: translateX(-50%); display: flex; align-items: flex-end; gap: 10px;
-  background: var(--slab); border: 1px solid var(--line); border-radius: 6px 6px 10px 10px; padding: 5px 10px 6px; }
-#speedo { width: 92px; height: 92px; }
+#cluster { position: absolute; left: 50%; top: max(6px, var(--st)); transform: translateX(-50%); display: flex; align-items: flex-end; gap: 6px;
+  background: var(--slab); border: 1px solid var(--line); border-radius: 6px 6px 10px 10px; padding: 3px 8px 4px; }
+#speedo { width: 68px; height: 68px; }
 #speedo .face { fill: #14110f; stroke: rgba(239,230,212,0.25); stroke-width: 1; }
 #speedTicks line { stroke: var(--bone); }
 #speedLabels text { fill: var(--bone); font-family: var(--sans); font-size: 7px; font-weight: 800; text-anchor: middle; }
 #spdNeedle { stroke: var(--rust); stroke-width: 2.2; stroke-linecap: round; }
 #spdNum { fill: var(--bone); font-family: var(--mono); font-size: 15px; font-weight: 700; text-anchor: middle; }
 #spdUnit { fill: var(--bone-dim); font-family: var(--sans); font-size: 6px; font-weight: 800; text-anchor: middle; letter-spacing: 0.1em; }
-.side { display: flex; flex-direction: column; gap: 6px; width: 88px; }
-#fuelG { width: 88px; height: 58px; }
+.side { display: flex; flex-direction: column; gap: 3px; width: 64px; }
+#fuelG { width: 64px; height: 40px; }
 #fuelG .arc { fill: none; stroke: rgba(239,230,212,0.35); stroke-width: 3; }
 #fuelG .redz { fill: none; stroke: var(--bad); stroke-width: 3; }
 #fuelG text { fill: var(--bone); font-family: var(--sans); font-weight: 900; font-size: 12px; text-anchor: middle; }
 #fuelNeedle { stroke: var(--bone); stroke-width: 2.4; stroke-linecap: round; }
 #fuelLight { fill: rgba(239,230,212,0.25); }
 #fuelLight.on { fill: var(--warn); filter: drop-shadow(0 0 4px var(--warn)); }
-.lab-s { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; color: var(--bone-dim); }
+.lab-s { font-family: var(--mono); font-size: 7.5px; letter-spacing: 0.08em; color: var(--bone-dim); }
 .tachBar { height: 7px; border-radius: 2px; background: rgba(239,230,212,0.14); overflow: hidden; }
 #tachFill { height: 100%; width: 10%; background: var(--bone); }
 #tachFill.red { background: var(--bad); }
-#gear { font-family: var(--mono); font-weight: 700; font-size: 24px; line-height: 1; color: var(--warn); }
+#gear { font-family: var(--mono); font-weight: 700; font-size: 17px; line-height: 1; color: var(--warn); }
 .waterRow { display: flex; align-items: center; gap: 7px; }
-.drop { width: 18px; height: 24px; position: relative; overflow: hidden; border: 2px solid var(--water); border-radius: 50% 50% 50% 50% / 62% 62% 40% 40%; border-top-left-radius: 50% 10%; border-top-right-radius: 50% 10%; transform: rotate(0deg); }
+.drop { width: 13px; height: 17px; position: relative; overflow: hidden; border: 2px solid var(--water); border-radius: 50% 50% 50% 50% / 62% 62% 40% 40%; border-top-left-radius: 50% 10%; border-top-right-radius: 50% 10%; transform: rotate(0deg); }
 #waterFill { position: absolute; left: 0; right: 0; bottom: 0; height: 100%; background: var(--water); }
 #waterFill.low { background: var(--bad); }
-#bottleCount { font-family: var(--mono); font-weight: 700; font-size: 14px; color: var(--water); }
+#bottleCount { font-family: var(--mono); font-weight: 700; font-size: 11px; color: var(--water); }
 
 #actions { position: absolute; left: 50%; bottom: calc(max(8px, var(--sb)) + 20px); transform: translateX(-50%); display: flex; gap: 10px; pointer-events: none; }
-.act { pointer-events: auto; touch-action: none; position: relative; min-width: 132px; padding: 12px 16px; border-radius: 5px; border: 2px solid #e9eef2; background: var(--sign); color: #f4f6f4;
+.act { pointer-events: auto; touch-action: none; position: relative; min-width: 112px; padding: 9px 12px; border-radius: 5px; border: 2px solid #e9eef2; background: var(--sign); color: #f4f6f4;
   font-weight: 900; font-size: 17px; letter-spacing: 0.06em; text-transform: uppercase; display: flex; flex-direction: column; align-items: center; gap: 2px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
 .act small { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing: 0.04em; text-transform: none; opacity: 0.85; }
 .act:active { transform: translateY(1px); }
 #actFuel .prog { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--warn); width: 0; }
 #actDrink { background: #12506e; }
-#toast { position: absolute; left: 50%; top: calc(max(8px, var(--st)) + 110px); transform: translateX(-50%); opacity: 0; transition: opacity .25s; font-weight: 800; font-size: 15px; padding: 7px 14px; border-radius: 4px;
+#toast { position: absolute; left: 50%; top: calc(max(8px, var(--st)) + 84px); transform: translateX(-50%); opacity: 0; transition: opacity .25s; font-weight: 800; font-size: 15px; padding: 7px 14px; border-radius: 4px;
   background: var(--slab); border: 1px solid var(--line); text-align: center; max-width: min(520px, calc(100% - 32px)); }
 #toast.show { opacity: 1; }
 #toast.k-warn { color: var(--warn); } #toast.k-bad { color: var(--bad); } #toast.k-good { color: var(--good); }
@@ -141,30 +141,31 @@ body.portrait #menu { align-items: flex-end; background: linear-gradient(180deg,
 /* ── wheel & pedals ── */
 #drive { position: absolute; inset: 0; pointer-events: none; }
 body:not(.in-game) #drive, body:not(.in-game) #actions { display: none; }
-#wheel { position: absolute; left: calc(max(12px, var(--sl)) + 4px); bottom: calc(max(10px, var(--sb)) + 2px); width: 178px; height: 178px; pointer-events: auto; touch-action: none; border-radius: 50%; }
+#wheel { position: absolute; left: calc(max(12px, var(--sl)) + 4px); bottom: calc(max(10px, var(--sb)) + 2px); width: 132px; height: 132px; pointer-events: auto; touch-action: none; border-radius: 50%; }
 #wheelRot { width: 100%; height: 100%; will-change: transform; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.45)); }
 #wheel.honk .hub { fill: var(--rust); }
-#pedals { position: absolute; right: calc(max(14px, var(--sr)) + 4px); bottom: calc(max(10px, var(--sb)) + 4px); display: flex; align-items: flex-end; gap: 14px; pointer-events: none; }
+#pedals { position: absolute; right: calc(max(14px, var(--sr)) + 4px); bottom: calc(max(10px, var(--sb)) + 4px); display: flex; align-items: flex-end; gap: 10px; pointer-events: none; }
 .pedal { --press: 0; pointer-events: auto; touch-action: none; position: relative; border-radius: 8px; border: 2px solid rgba(239,230,212,0.55);
   background: repeating-linear-gradient(0deg, #5b5652 0 6px, #3c3835 6px 12px); box-shadow: inset 0 0 0 4px rgba(20,16,14,0.6), 0 8px 14px rgba(0,0,0,0.45);
   transform: perspective(380px) rotateX(calc(var(--press) * 24deg)) translateY(calc(var(--press) * 6px)); transform-origin: 50% 100%; }
-.pedal span { position: absolute; left: 0; right: 0; bottom: -2px; transform: translateY(100%); text-align: center; font-weight: 900; font-size: 11px; letter-spacing: 0.14em; color: var(--bone); text-shadow: 0 1px 4px #000; padding-top: 3px; }
-#brake { width: 104px; height: 92px; }
-#gas { width: 70px; height: 132px; }
+.pedal span { position: absolute; left: 0; right: 0; bottom: -2px; transform: translateY(100%); text-align: center; font-weight: 900; font-size: 9px; letter-spacing: 0.14em; color: var(--bone); text-shadow: 0 1px 4px #000; padding-top: 3px; }
+#brake { width: 76px; height: 66px; }
+#gas { width: 54px; height: 98px; }
 .pedal.down { border-color: var(--warn); }
 #gas.down { box-shadow: inset 0 0 0 4px rgba(20,16,14,0.6), 0 0 14px rgba(240,180,64,0.5); }
 #brake.down { border-color: var(--bad); }
 body.lefty #wheel { left: auto; right: calc(max(12px, var(--sr)) + 4px); }
 body.lefty #pedals { right: auto; left: calc(max(14px, var(--sl)) + 4px); flex-direction: row-reverse; }
-#pedals { padding-bottom: 14px; }
+#pedals { padding-bottom: 12px; }
+#wheel, .pedal { opacity: 0.9; }
 
-body.portrait #cluster { top: calc(max(8px, var(--st)) + 112px); }
-body.portrait #toast { top: calc(max(8px, var(--st)) + 220px); }
-body.portrait #wheel { width: 156px; height: 156px; }
+body.portrait #cluster { top: calc(max(8px, var(--st)) + 92px); }
+body.portrait #toast { top: calc(max(8px, var(--st)) + 176px); }
+body.portrait #wheel { width: 128px; height: 128px; }
 body.portrait #top { flex-wrap: wrap; }
 body.portrait #info { order: 2; }
-body.portrait #actions { bottom: calc(max(8px, var(--sb)) + 200px); flex-direction: column; }
-@media (max-height: 400px) { #speedo { width: 84px; height: 84px; } #fuelG { height: 50px; } #wheel { width: 160px; height: 160px; } #gas { height: 118px; } #brake { height: 84px; width: 96px; } }
+body.portrait #actions { bottom: calc(max(8px, var(--sb)) + 150px); flex-direction: column; }
+@media (max-height: 400px) { #speedo { width: 64px; height: 64px; } #fuelG { height: 38px; } #wheel { width: 124px; height: 124px; } #gas { height: 90px; width: 52px; } #brake { height: 62px; width: 72px; } }
 
 #loading { position: fixed; inset: 0; z-index: 40; background: var(--ground); display: grid; place-items: center; text-align: center; }
 #loading .t { font-weight: 900; font-size: 46px; letter-spacing: -0.01em; }
